@@ -54,6 +54,17 @@ try:
 except ValueError:
     MAX_APPLICATIONS_PER_RUN = 10
 
+
+def _as_bool(val: str, default: bool = False) -> bool:
+    if val is None:
+        return default
+    return str(val).strip().lower() in ("1", "true", "yes", "on")
+
+
+# When True, automation fills forms but does NOT click final submit — lets you
+# verify the flow safely before applying for real.
+AUTOMATION_DRY_RUN: bool = _as_bool(os.getenv("AUTOMATION_DRY_RUN"), default=False)
+
 # --------------------------------------------------------------------------- #
 # Defaults                                                                     #
 # --------------------------------------------------------------------------- #
