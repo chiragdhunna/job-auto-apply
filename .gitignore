@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+*.env
+!.env.example
+
+# Database & data
+data/
+*.db
+*.sqlite3
+
+# Generated resumes / build artifacts
+resume_tailor/output/
+output/
+*.pdf
+*.aux
+*.log
+*.out
+
+# Logs
+logs/
+*.log
+
+# Playwright persistent browser profiles (contain auth cookies — never commit)
+browser_profiles/
+.pw-profiles/
+playwright/.auth/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
