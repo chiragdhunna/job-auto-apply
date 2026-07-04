@@ -1,0 +1,61 @@
+{
+  "name": "Your Name",
+  "headline": "Python Backend & GenAI Engineer",
+  "email": "you@example.com",
+  "phone": "+00 00000 00000",
+  "location": "City, Country",
+  "work_authorization": "e.g. UK Skilled Worker visa / Indian citizen / EU work permit",
+  "links": {
+    "linkedin": "https://www.linkedin.com/in/your-handle",
+    "github": "https://github.com/your-handle",
+    "portfolio": "https://your-site.dev"
+  },
+  "summary": "One- or two-sentence professional summary highlighting your strongest, most relevant experience for the roles you are targeting.",
+  "skills": {
+    "languages": ["Python", "Dart", "SQL", "JavaScript", "TypeScript"],
+    "backend": ["FastAPI", "Flask", "Django", "REST APIs", "WebSockets"],
+    "genai": ["LangChain", "RAG", "Gemini API", "OpenAI API", "Vector databases", "Prompt engineering"],
+    "mobile": ["Flutter", "Dart", "Provider/Riverpod", "REST integration"],
+    "cloud_devops": ["Docker", "AWS", "GCP", "CI/CD", "GitHub Actions"],
+    "databases": ["PostgreSQL", "SQLite", "MongoDB", "Redis"]
+  },
+  "experience": [
+    {
+      "company": "Company Name",
+      "title": "Software Engineer",
+      "location": "City, Country",
+      "start": "2023-01",
+      "end": "Present",
+      "highlights": [
+        "Impact-driven achievement with a concrete metric (e.g. reduced p95 latency by 40%).",
+        "Shipped a feature/system relevant to your target roles, noting scale or outcome.",
+        "Collaboration / ownership highlight that demonstrates seniority."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "institution": "University Name",
+      "degree": "B.Tech in Computer Science",
+      "location": "City, Country",
+      "start": "2019",
+      "end": "2023",
+      "details": "GPA / relevant coursework / honors"
+    }
+  ],
+  "projects": [
+    {
+      "name": "Project Name",
+      "tech": ["Python", "FastAPI", "Gemini"],
+      "description": "What it does and the measurable impact or interesting technical challenge.",
+      "link": "https://github.com/your-handle/project"
+    }
+  ],
+  "certifications": [],
+  "preferences": {
+    "notice_period": "e.g. Immediate / 30 days",
+    "willing_to_relocate": true,
+    "remote_ok": true,
+    "expected_salary_lpa": 10
+  }
+}

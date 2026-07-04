@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from backend.db.session import init_db
+from backend.routers import settings as settings_router
 
 
 @asynccontextmanager
@@ -26,8 +27,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.include_router(settings_router.router)
+
 
 @app.get("/health", tags=["system"])
-def health() -> dict[str, str]:
+def health() -> dict:
     """Liveness probe used by run.sh and the dashboard."""
     return {"status": "ok"}

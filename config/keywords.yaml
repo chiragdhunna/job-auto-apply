@@ -1,0 +1,32 @@
+# Job-search configuration (defaults). Runtime overrides for score_threshold,
+# platform toggles, and run_interval_minutes are editable from the dashboard
+# Settings page and persisted to the SQLite `settings` table.
+
+target_roles:
+  - "Python Backend Developer"
+  - "GenAI Engineer"
+  - "Flutter Developer"
+
+locations:
+  - "United Kingdom"
+  - "Remote"
+  - "India"
+
+exclude_companies: []
+
+# Minimum acceptable salary (in LPA — lakhs per annum). Used as a soft filter.
+salary_floor_lpa: 10
+
+# Jobs scoring at or above this threshold are auto-queued for application.
+score_threshold: 70
+
+# Which platforms are active. Toggle from the dashboard Settings page.
+platforms:
+  linkedin: true
+  indeed: true
+  greenhouse: true
+  lever: true
+  workday: true
+
+# How often the scheduler runs the full pipeline (minutes).
+run_interval_minutes: 60
