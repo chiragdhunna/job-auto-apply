@@ -12,16 +12,20 @@ import json
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.db import crud
-from backend.db.models import Job, JobStatus
+from backend.db.models import Job, JobStatus, ResumeVersion
 from backend.db.session import get_db
 from backend.llm.client import LLMError
+from backend.resume_tailor.latex_engine import tailor_and_store
 from backend.routers.settings import effective_settings
 from backend.scoring.gemini_scorer import score_and_store, score_new_jobs
 from backend.scrapers.ats_boards_scraper import run_ats_scrape
+
+import os
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -83,6 +87,50 @@ def scrape_now(db: Session = Depends(get_db)) -> Dict[str, Any]:
 def score_all_new(db: Session = Depends(get_db)) -> Dict[str, Any]:
     """Score every job currently in 'new' status."""
     return score_new_jobs(db)
+
+
+@router.get("/resume-download/{rv_id}")
+def download_resume(rv_id: int, db: Session = Depends(get_db)):
+    """Download the compiled PDF for a resume version."""
+    rv = db.get(ResumeVersion, rv_id)
+    if rv is None:
+        raise HTTPException(status_code=404, detail="Resume version not found")
+    if not rv.pdf_path or not os.path.exists(rv.pdf_path):
+        raise HTTPException(status_code=404, detail="No compiled PDF for this resume version")
+    return FileResponse(rv.pdf_path, media_type="application/pdf", filename=os.path.basename(rv.pdf_path))
+
+
+@router.post("/{job_id}/resume")
+def generate_resume_for_job(job_id: int, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Generate (and compile, if a LaTeX engine is installed) a tailored resume."""
+    job = crud.get_job(db, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    try:
+        rv = tailor_and_store(db, job)
+    except LLMError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {
+        "resume_version_id": rv.id,
+        "job_id": job_id,
+        "compiled": bool(rv.pdf_path),
+        "pdf_path": rv.pdf_path,
+        "tex_chars": len(rv.tex_content or ""),
+    }
+
+
+@router.get("/{job_id}/resumes")
+def list_job_resumes(job_id: int, db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
+    return [
+        {
+            "id": rv.id,
+            "pdf_path": rv.pdf_path,
+            "compiled": bool(rv.pdf_path),
+            "generated_at": rv.generated_at.isoformat(),
+            "tex_chars": len(rv.tex_content or ""),
+        }
+        for rv in crud.list_resume_versions(db, job_id=job_id)
+    ]
 
 
 @router.post("/{job_id}/score")
