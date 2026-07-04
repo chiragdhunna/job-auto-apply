@@ -103,6 +103,20 @@ def exclude_companies() -> List[str]:
     return [c.lower() for c in (load_keywords().get("exclude_companies", []) or [])]
 
 
+def ats_companies() -> Dict[str, list]:
+    """Company slugs per ATS provider, from keywords.yaml -> ats_companies.
+
+    Shape: {"greenhouse": [slug, ...], "lever": [...], "ashby": [...],
+            "workday": [ {name, cxs_url, site_url}, ... ]}
+    """
+    companies = load_keywords().get("ats_companies") or {}
+    return {k: list(v or []) for k, v in companies.items()}
+
+
+def salary_floor_lpa() -> float:
+    return float(load_keywords().get("salary_floor_lpa", 0) or 0)
+
+
 def keywords_defaults() -> Dict[str, Any]:
     """Effective defaults for the runtime-tunable settings, sourced from YAML."""
     kw = load_keywords()

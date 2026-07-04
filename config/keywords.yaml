@@ -30,3 +30,22 @@ platforms:
 
 # How often the scheduler runs the full pipeline (minutes).
 run_interval_minutes: 60
+
+# Companies to pull open roles from via their public ATS APIs.
+# These are EXAMPLES — replace with the companies you actually want to target.
+#   greenhouse/lever/ashby: the company's board slug (the {company} in the API URL)
+#   workday: objects with a tenant-specific CxS endpoint (see README / WorkdayScraper)
+ats_companies:
+  greenhouse:
+    - "stripe"
+    - "gitlab"
+    - "databricks"
+  lever:
+    - "leverdemo"
+    - "plaid"
+  ashby:
+    - "ramp"
+    - "notion"
+    - "openai"
+  workday: []
+
