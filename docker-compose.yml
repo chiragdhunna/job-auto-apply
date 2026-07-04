@@ -1,0 +1,37 @@
+# Optional: run the backend API + Streamlit dashboard together.
+#
+#   docker compose up --build
+#
+# The browser-automation and scheduler pieces are intentionally NOT containerised
+# — they drive a non-headless browser with your logged-in session and belong on
+# the host (use ./run.sh there, or `python -m scheduler.runner`). Within Docker
+# you get the API + dashboard for discovery, scoring, resume/answer generation
+# and review; keep the linkedin/indeed platform toggles off for container runs.
+
+services:
+  backend:
+    build: .
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config:/app/config
+
+  dashboard:
+    build: .
+    command: streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      - BACKEND_URL=http://backend:8000
+    env_file:
+      - .env
+    depends_on:
+      - backend
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
