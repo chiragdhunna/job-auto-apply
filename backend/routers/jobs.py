@@ -11,11 +11,12 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from backend.answer_generator.gemini_answers import generate_answers
 from backend.db import crud
 from backend.db.models import Job, JobStatus, ResumeVersion
 from backend.db.session import get_db
@@ -58,6 +59,11 @@ def job_to_dict(job: Job, *, include_description: bool = False) -> Dict[str, Any
 
 class StatusUpdate(BaseModel):
     status: str
+
+
+class AnswersRequest(BaseModel):
+    questions: Optional[List[str]] = None
+    max_words: int = 150
 
 
 @router.get("")
@@ -117,6 +123,28 @@ def generate_resume_for_job(job_id: int, db: Session = Depends(get_db)) -> Dict[
         "pdf_path": rv.pdf_path,
         "tex_chars": len(rv.tex_content or ""),
     }
+
+
+@router.post("/{job_id}/answers")
+def answers_for_job(
+    job_id: int,
+    payload: AnswersRequest = Body(default=None),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Generate answers to the common questions (or a supplied custom set)."""
+    job = crud.get_job(db, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    payload = payload or AnswersRequest()
+    try:
+        answers = generate_answers(
+            job, questions=payload.questions, max_words=payload.max_words
+        )
+    except LLMError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail=f"Model returned invalid JSON: {exc}") from exc
+    return {"job_id": job_id, "answers": answers}
 
 
 @router.get("/{job_id}/resumes")
