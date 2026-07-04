@@ -18,7 +18,9 @@ from sqlalchemy.orm import Session
 from backend.db import crud
 from backend.db.models import Job, JobStatus
 from backend.db.session import get_db
+from backend.llm.client import LLMError
 from backend.routers.settings import effective_settings
+from backend.scoring.gemini_scorer import score_and_store, score_new_jobs
 from backend.scrapers.ats_boards_scraper import run_ats_scrape
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -75,6 +77,25 @@ def scrape_now(db: Session = Depends(get_db)) -> Dict[str, Any]:
     toggles = effective_settings(db)["platform_toggles"]
     summary = run_ats_scrape(db, platform_toggles=toggles)
     return {"summary": summary}
+
+
+@router.post("/score")
+def score_all_new(db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Score every job currently in 'new' status."""
+    return score_new_jobs(db)
+
+
+@router.post("/{job_id}/score")
+def score_one(job_id: int, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    job = crud.get_job(db, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    try:
+        return score_and_store(db, job)
+    except LLMError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail=f"Model returned invalid JSON: {exc}") from exc
 
 
 @router.get("/{job_id}")
