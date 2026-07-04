@@ -54,6 +54,18 @@ def get_settings(db: Session = Depends(get_db)) -> Dict[str, Any]:
     return _with_provider(db)
 
 
+@router.get("/llm-status")
+def llm_status() -> Dict[str, Any]:
+    """Live LLM status: active provider + whether Ollama is currently reachable.
+
+    Surfaced on the dashboard Settings page so the owner can see at a glance
+    which provider is actually being used.
+    """
+    from backend.llm.client import get_client
+
+    return get_client().status()
+
+
 @router.put("")
 def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db)) -> Dict[str, Any]:
     if payload.score_threshold is not None:

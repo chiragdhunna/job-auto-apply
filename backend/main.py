@@ -9,12 +9,19 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+import logging
+
 from backend.db.session import init_db
+from backend.routers import debug as debug_router
 from backend.routers import settings as settings_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
     # Ensure the schema exists before serving any request.
     init_db()
     yield
@@ -28,6 +35,7 @@ app = FastAPI(
 )
 
 app.include_router(settings_router.router)
+app.include_router(debug_router.router)
 
 
 @app.get("/health", tags=["system"])
