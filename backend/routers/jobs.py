@@ -106,6 +106,22 @@ def download_resume(rv_id: int, db: Session = Depends(get_db)):
     return FileResponse(rv.pdf_path, media_type="application/pdf", filename=os.path.basename(rv.pdf_path))
 
 
+@router.get("/resume-version/{rv_id}")
+def get_resume_version(rv_id: int, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Full resume version incl. the LaTeX source (for the dashboard viewer)."""
+    rv = db.get(ResumeVersion, rv_id)
+    if rv is None:
+        raise HTTPException(status_code=404, detail="Resume version not found")
+    return {
+        "id": rv.id,
+        "job_id": rv.job_id,
+        "tex_content": rv.tex_content,
+        "pdf_path": rv.pdf_path,
+        "compiled": bool(rv.pdf_path),
+        "generated_at": rv.generated_at.isoformat() if rv.generated_at else None,
+    }
+
+
 @router.post("/{job_id}/resume")
 def generate_resume_for_job(job_id: int, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """Generate (and compile, if a LaTeX engine is installed) a tailored resume."""
