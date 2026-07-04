@@ -251,8 +251,13 @@ def run_ats_applications(
     db: Session,
     max_per_run: Optional[int] = None,
     dry_run: Optional[bool] = None,
+    sources: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    """Apply to queued Greenhouse/Lever jobs (up to the per-run cap)."""
+    """Apply to queued Greenhouse/Lever jobs (up to the per-run cap).
+
+    ``sources`` restricts which platforms are applied to (used by the scheduler
+    to honour platform toggles); defaults to both Greenhouse and Lever.
+    """
     setup_automation_logging()
     from playwright.sync_api import sync_playwright  # local import: heavy dep
 
@@ -260,9 +265,9 @@ def run_ats_applications(
     applicant = applicant_from_resume(base_resume_data)
     cap = max_per_run or config.MAX_APPLICATIONS_PER_RUN
     dry_run = config.AUTOMATION_DRY_RUN if dry_run is None else dry_run
+    src = sources or [JobSource.GREENHOUSE, JobSource.LEVER]
 
-    queued = crud.list_jobs(db, statuses=[JobStatus.QUEUED],
-                            sources=[JobSource.GREENHOUSE, JobSource.LEVER], order_desc=True)
+    queued = crud.list_jobs(db, statuses=[JobStatus.QUEUED], sources=src, order_desc=True)
     jobs = queued[:cap]
     summary = {"attempted": 0, "submitted": 0, "failed": 0, "needs_review": 0,
                "eligible": len(queued), "dry_run": dry_run}
