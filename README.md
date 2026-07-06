@@ -331,6 +331,13 @@ per-run application caps. Selectors for LinkedIn/Indeed/ATS DOMs change often �
 
 - **"Ollama not reachable"** — start it (`ollama serve`) and `ollama pull` a model,
   or set `GEMINI_API_KEY`. Check the Settings page status.
+- **"Ollama timed out after Ns" during resume generation** — writing a full LaTeX
+  resume is a long generation and can take several minutes on CPU-only machines
+  (scoring is much shorter, so it may work while resume generation times out).
+  Raise `OLLAMA_TIMEOUT` in `.env` (default 600s), use a faster model, or set
+  `GEMINI_API_KEY` — Gemini generates a resume in seconds. When the LLM is down
+  or timing out, the application batch stops early and the remaining jobs stay
+  `queued` so they're retried automatically next cycle.
 - **Resume generated but "not compiled"** — install `tectonic` or `pdflatex`. The
   `.tex` is always saved; only the PDF needs a compiler.
 - **LinkedIn/Indeed "Not logged in"** — run the `--login` command for that platform

@@ -41,6 +41,14 @@ LLM_PROVIDER: str = (os.getenv("LLM_PROVIDER") or "auto").strip().lower()
 OLLAMA_HOST: str = (os.getenv("OLLAMA_HOST") or "http://localhost:11434").strip().rstrip("/")
 OLLAMA_MODEL: str = (os.getenv("OLLAMA_MODEL") or "llama3.1:8b").strip()
 
+# Per-request timeout for Ollama generation. Long-form outputs (a full tailored
+# resume in LaTeX) can take many minutes on CPU-only machines — far longer than
+# short JSON scoring calls. Raise this if resume generation times out.
+try:
+    OLLAMA_TIMEOUT: int = int(os.getenv("OLLAMA_TIMEOUT", "600") or 600)
+except ValueError:
+    OLLAMA_TIMEOUT = 600
+
 LINKEDIN_EMAIL: str = os.getenv("LINKEDIN_EMAIL", "")
 LINKEDIN_PASSWORD: str = os.getenv("LINKEDIN_PASSWORD", "")
 INDEED_EMAIL: str = os.getenv("INDEED_EMAIL", "")

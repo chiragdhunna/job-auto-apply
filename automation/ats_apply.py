@@ -35,6 +35,7 @@ from backend import config
 from backend.answer_generator.gemini_answers import _slug, generate_answers
 from backend.db import crud
 from backend.db.models import ApplicationStatus, Job, JobSource, JobStatus
+from backend.llm.client import LLMError
 from backend.resume_tailor.latex_engine import tailor_and_store
 
 logger = logging.getLogger("job_auto_apply.automation.ats")
@@ -67,12 +68,20 @@ SUCCESS_HINTS = [
 def _ensure_resume_pdf(
     db: Session, job: Job, base_resume_data: Dict[str, Any]
 ) -> Tuple[Optional[str], Optional[int]]:
+    """Return (pdf_path, resume_version_id) for the job, generating if needed.
+
+    Raises LLMError when the LLM provider is down/timing out — the caller aborts
+    the whole batch in that case (retrying job after job would just burn one
+    timeout per job).
+    """
     rv = crud.latest_resume_version(db, job.id)
     if rv and rv.pdf_path and os.path.exists(rv.pdf_path):
         return rv.pdf_path, rv.id
     logger.info("No compiled resume for job %s — generating one.", job.id)
     try:
         rv = tailor_and_store(db, job, base_resume_data)
+    except LLMError:
+        raise  # provider outage/timeout — let the caller stop the batch
     except Exception:  # noqa: BLE001
         logger.exception("Resume generation failed for job %s", job.id)
         return None, (rv.id if rv else None)
@@ -281,12 +290,39 @@ def run_ats_applications(
         try:
             for job in jobs:
                 summary["attempted"] += 1
-                resume_path, rv_id = _ensure_resume_pdf(db, job, base_resume_data)
+                try:
+                    resume_path, rv_id = _ensure_resume_pdf(db, job, base_resume_data)
+                except LLMError as exc:
+                    # Provider down or timing out: every subsequent job would burn a
+                    # full timeout too. Stop the batch; jobs stay 'queued' and are
+                    # retried automatically next cycle.
+                    logger.error(
+                        "LLM unavailable while generating resume for job %s: %s "
+                        "— stopping this application batch; remaining jobs stay "
+                        "queued for the next cycle.",
+                        job.id,
+                        exc,
+                    )
+                    summary["llm_error"] = str(exc)
+                    summary["attempted"] -= 1
+                    break
                 if not resume_path:
                     crud.set_job_status(db, job, JobStatus.NEEDS_REVIEW)
                     db.commit()
                     summary["needs_review"] += 1
-                    logger.warning("Job %s skipped — no resume PDF (install a LaTeX engine).", job.id)
+                    if rv_id:
+                        logger.warning(
+                            "Job %s -> needs_review: resume LaTeX was generated but "
+                            "PDF compilation failed — install `tectonic` or `pdflatex` "
+                            "and re-queue (Approve) the job.",
+                            job.id,
+                        )
+                    else:
+                        logger.warning(
+                            "Job %s -> needs_review: resume generation failed "
+                            "(see logs/automation.log for the traceback).",
+                            job.id,
+                        )
                     continue
                 try:
                     app_status, notes, answers = apply_to_job(

@@ -39,6 +39,7 @@ from backend import config
 from backend.answer_generator.gemini_answers import _slug, generate_answers
 from backend.db import crud
 from backend.db.models import ApplicationStatus, JobSource, JobStatus
+from backend.llm.client import LLMError
 from backend.resume_tailor.latex_engine import tailor_and_store
 from backend.scoring.gemini_scorer import score_and_store
 
@@ -302,14 +303,14 @@ def run_linkedin_easy_apply(
                     "and sign in once; the session will persist."
                 )
             for role in roles:
-                if summary["submitted"] >= cap:
+                if summary["submitted"] >= cap or "llm_error" in summary:
                     break
                 for location in locations:
-                    if summary["submitted"] >= cap:
+                    if summary["submitted"] >= cap or "llm_error" in summary:
                         break
                     urls = _collect_job_urls(page, role, location, limit=cap * 3)
                     for url in urls:
-                        if summary["submitted"] >= cap:
+                        if summary["submitted"] >= cap or "llm_error" in summary:
                             break
                         data = _read_job(page, url)
                         if not data:
@@ -322,6 +323,15 @@ def run_linkedin_easy_apply(
                         try:
                             result = score_and_store(db, job, base_resume_data=base_resume_data, threshold=threshold)
                             summary["scored"] += 1
+                        except LLMError as exc:
+                            logger.error(
+                                "LLM unavailable while scoring LinkedIn job %s: %s — "
+                                "stopping this run; unscored jobs retry next cycle.",
+                                job.id,
+                                exc,
+                            )
+                            summary["llm_error"] = str(exc)
+                            break
                         except Exception:
                             logger.exception("Scoring failed for LinkedIn job %s", job.id)
                             continue

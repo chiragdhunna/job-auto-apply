@@ -35,11 +35,13 @@ class OllamaProvider:
         self,
         host: Optional[str] = None,
         model: Optional[str] = None,
-        timeout: int = 180,
+        timeout: Optional[int] = None,
     ) -> None:
         self.host = (host or config.OLLAMA_HOST).rstrip("/")
         self.model = model or config.OLLAMA_MODEL
-        self.timeout = timeout
+        # Default comes from OLLAMA_TIMEOUT in .env (600s). Long generations
+        # (tailored resume LaTeX) routinely exceed a couple of minutes on CPU.
+        self.timeout = timeout if timeout is not None else config.OLLAMA_TIMEOUT
 
     def is_reachable(self) -> bool:
         """Quick liveness check used by the dashboard/settings status view."""
@@ -64,6 +66,13 @@ class OllamaProvider:
             raise OllamaUnavailableError(
                 f"Ollama not reachable at {self.host}. Is it running? Start it with "
                 f"`ollama serve` and pull a model with `ollama pull {self.model}`."
+            ) from exc
+        except requests.Timeout as exc:
+            raise OllamaError(
+                f"Ollama timed out after {self.timeout}s while generating with "
+                f"'{self.model}'. Long outputs (e.g. a tailored resume in LaTeX) can "
+                f"exceed this on CPU-only machines. Fix: increase OLLAMA_TIMEOUT in "
+                f".env, use a faster model, or set GEMINI_API_KEY to use Gemini."
             ) from exc
         except requests.RequestException as exc:
             raise OllamaError(f"Ollama request failed: {exc}") from exc
