@@ -41,7 +41,8 @@ ats_companies:
     - "gitlab"
     - "databricks"
   lever:
-    - "leverdemo"
+    # NOTE: "leverdemo" is Lever's DEMO board — don't add it back; applications
+    # there go nowhere. Add real Lever-hosted companies you want to target.
     - "plaid"
   ashby:
     - "ramp"

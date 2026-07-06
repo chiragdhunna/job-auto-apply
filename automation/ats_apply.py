@@ -114,6 +114,47 @@ def _detect_platform(url: str) -> Optional[str]:
     return None
 
 
+def _platform_for_job(job: Job) -> Optional[str]:
+    """Platform to apply through — trust the scraper's source first.
+
+    Many companies (Databricks, Stripe, ...) configure CUSTOM career-site URLs
+    in Greenhouse, so URL sniffing misses them. The `source` column recorded at
+    scrape time is authoritative; URL detection is only a fallback for jobs
+    that arrived without an ATS source.
+    """
+    if job.source in (JobSource.GREENHOUSE, JobSource.LEVER):
+        return job.source
+    return _detect_platform(job.url)
+
+
+def _enter_greenhouse_form(page) -> None:
+    """Get onto the actual Greenhouse application form.
+
+    Custom career sites embed the form in an iframe (#grnhse_iframe pointing at
+    a greenhouse.io embed URL). Our selectors can't reach inside an iframe —
+    so when no form fields are present on the top-level page, find the embed
+    iframe and navigate DIRECTLY to its URL (a full-page version of the form).
+    """
+    if first_locator(page, GH_SELECTORS["first_name"]) or first_locator(page, GH_SELECTORS["email"]):
+        return  # already on a form
+    for sel in ("iframe#grnhse_iframe", 'iframe[src*="greenhouse.io"]', 'iframe[src*="greenhouse"]'):
+        try:
+            frame_el = page.locator(sel).first
+            if frame_el.count() > 0:
+                src = frame_el.get_attribute("src")
+                if src:
+                    logger.info(
+                        "Greenhouse embed iframe detected — opening the form directly: %s",
+                        src[:120],
+                    )
+                    page.goto(src, wait_until="domcontentloaded", timeout=45000)
+                    human_delay(1.5, 3.0)
+                    return
+        except Exception:
+            logger.debug("Greenhouse embed check failed for %s", sel, exc_info=True)
+    logger.info("No Greenhouse form fields or embed iframe found on this page.")
+
+
 def _set_resume_file(page, resume_path: str) -> bool:
     for sel in ['input[type="file"]']:
         try:
@@ -228,9 +269,13 @@ def _looks_submitted(page) -> bool:
 # --------------------------------------------------------------------------- #
 def apply_to_job(page, job, applicant, resume_path, base_resume_data, dry_run) -> Tuple[str, str, Dict[str, str]]:
     """Returns (application_status, notes, answers_filled)."""
-    platform = _detect_platform(job.url)
+    platform = _platform_for_job(job)
     if platform is None:
-        return ApplicationStatus.PENDING_REVIEW, f"Unrecognised ATS URL: {job.url}", {}
+        return (
+            ApplicationStatus.PENDING_REVIEW,
+            f"Not a Greenhouse/Lever job (source={job.source}, url={job.url})",
+            {},
+        )
 
     target_url = job.url
     if platform == JobSource.LEVER and not target_url.rstrip("/").endswith("/apply"):
@@ -250,6 +295,8 @@ def apply_to_job(page, job, applicant, resume_path, base_resume_data, dry_run) -
             pass
 
     if platform == JobSource.GREENHOUSE:
+        # Custom career domains (databricks.com, ...) embed the form in an iframe.
+        _enter_greenhouse_form(page)
         answers = fill_greenhouse(page, applicant, resume_path, job, base_resume_data)
     else:
         answers = fill_lever(page, applicant, resume_path, job, base_resume_data)
