@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import random
+import re
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -155,6 +156,66 @@ def human_type(locator, text: str, *, clear: bool = True) -> None:
         page.keyboard.type(ch)
         time.sleep(random.uniform(0.03, 0.16))
     short_delay()
+
+
+_PHONE_KEEP_RE = re.compile(r"[^\d+]")
+_DIGITS_RE = re.compile(r"\D")
+
+
+def phone_variants(raw: str) -> Dict[str, str]:
+    """Useful representations of a phone number for form filling.
+
+    ATS phone inputs are rarely plain text boxes — international widgets with
+    masks/country dropdowns often reject spaces, choke on '+', or enforce a
+    10-digit national format. From e.g. "+91 935 334 8691":
+
+      e164     -> "+919353348691"  (best for international widgets)
+      national -> "9353348691"     (last 10 digits; for masked/local inputs)
+      digits   -> "919353348691"
+    """
+    cleaned = _PHONE_KEEP_RE.sub("", raw or "")
+    digits = cleaned.lstrip("+")
+    if not digits:
+        return {"e164": "", "national": "", "digits": ""}
+    national = digits[-10:] if len(digits) > 10 else digits
+    return {"e164": "+" + digits, "national": national, "digits": digits}
+
+
+def type_phone(locator, raw_phone: str) -> bool:
+    """Fill a phone field robustly: try formats, VERIFY what stuck, retry.
+
+    Success only counts when the digits now in the field exactly match the
+    digits we tried to type (masks may add formatting — that's fine — but
+    truncation or rejection means we try the next format).
+    """
+    variants = phone_variants(raw_phone)
+    for label in ("e164", "national"):
+        value = variants.get(label) or ""
+        if not value:
+            continue
+        try:
+            human_type(locator, value)
+        except Exception:
+            logger.debug("typing phone (%s) raised", label, exc_info=True)
+            continue
+        try:
+            typed = locator.input_value() or ""
+        except Exception:
+            typed = ""
+        typed_digits = _DIGITS_RE.sub("", typed)
+        want_digits = _DIGITS_RE.sub("", value)
+        if typed_digits == want_digits:
+            logger.info("Phone filled using %s format (field shows %r).", label, typed)
+            return True
+        logger.warning(
+            "Phone %s format didn't stick (wanted digits %s, field shows %r) — "
+            "trying next format.",
+            label,
+            want_digits,
+            typed,
+        )
+    logger.warning("Could not fill the phone field with any format — check manually.")
+    return False
 
 
 def human_click(locator) -> None:

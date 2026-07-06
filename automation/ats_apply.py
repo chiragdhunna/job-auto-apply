@@ -30,6 +30,7 @@ from automation.stealth_config import (
     long_delay,
     setup_automation_logging,
     short_delay,
+    type_phone,
 )
 from backend import config
 from backend.answer_generator.gemini_answers import _slug, generate_answers
@@ -45,13 +46,27 @@ GH_SELECTORS = {
     "first_name": ["#first_name", 'input[name="first_name"]', 'input[autocomplete="given-name"]'],
     "last_name": ["#last_name", 'input[name="last_name"]', 'input[autocomplete="family-name"]'],
     "email": ["#email", 'input[type="email"]', 'input[name="email"]'],
-    "phone": ["#phone", 'input[type="tel"]', 'input[name="phone"]'],
+    "phone": [
+        "#phone",
+        'input[type="tel"]',
+        'input[name="phone"]',
+        'input[id*="phone" i]',
+        'input[name*="phone" i]',
+        'input[aria-label*="phone" i]',
+        'input[autocomplete="tel"]',
+    ],
     "submit": ['#submit_app', 'button[type="submit"]', 'text="Submit Application"'],
 }
 LEVER_SELECTORS = {
     "name": ['input[name="name"]', "#name"],
     "email": ['input[name="email"]', 'input[type="email"]'],
-    "phone": ['input[name="phone"]', 'input[type="tel"]'],
+    "phone": [
+        'input[name="phone"]',
+        'input[type="tel"]',
+        'input[id*="phone" i]',
+        'input[aria-label*="phone" i]',
+        'input[autocomplete="tel"]',
+    ],
     "submit": ['button[type="submit"]', 'text="Submit application"', ".template-btn-submit"],
 }
 SUCCESS_HINTS = [
@@ -169,10 +184,15 @@ def _answer_free_text(page, job: Job, base_resume_data: Dict[str, Any]) -> Dict[
 # --------------------------------------------------------------------------- #
 def fill_greenhouse(page, applicant, resume_path, job, base_resume_data) -> Dict[str, str]:
     for field, key in (("first_name", "first_name"), ("last_name", "last_name"),
-                       ("email", "email"), ("phone", "phone")):
+                       ("email", "email")):
         loc = first_locator(page, GH_SELECTORS[field])
         if loc and applicant.get(key):
             human_type(loc, applicant[key])
+    phone_loc = first_locator(page, GH_SELECTORS["phone"])
+    if phone_loc and applicant.get("phone"):
+        type_phone(phone_loc, applicant["phone"])
+    elif not phone_loc:
+        logger.warning("Greenhouse form: no phone field matched the selectors.")
     _set_resume_file(page, resume_path)
     return _answer_free_text(page, job, base_resume_data)
 
@@ -181,10 +201,14 @@ def fill_lever(page, applicant, resume_path, job, base_resume_data) -> Dict[str,
     loc = first_locator(page, LEVER_SELECTORS["name"])
     if loc and applicant.get("full_name"):
         human_type(loc, applicant["full_name"])
-    for field in ("email", "phone"):
-        loc = first_locator(page, LEVER_SELECTORS[field])
-        if loc and applicant.get(field):
-            human_type(loc, applicant[field])
+    loc = first_locator(page, LEVER_SELECTORS["email"])
+    if loc and applicant.get("email"):
+        human_type(loc, applicant["email"])
+    phone_loc = first_locator(page, LEVER_SELECTORS["phone"])
+    if phone_loc and applicant.get("phone"):
+        type_phone(phone_loc, applicant["phone"])
+    elif not phone_loc:
+        logger.warning("Lever form: no phone field matched the selectors.")
     _set_resume_file(page, resume_path)
     return _answer_free_text(page, job, base_resume_data)
 

@@ -35,6 +35,7 @@ from automation.stealth_config import (
     long_delay,
     setup_automation_logging,
     short_delay,
+    type_phone,
     wait_for_manual_login,
 )
 from backend import config
@@ -183,7 +184,7 @@ def _fill_visible_step(root, page, job, base_resume_data, resume_path, applicant
                 continue
             label = (el.get_attribute("aria-label") or el.get_attribute("name") or "").lower()
             if "phone" in label or "mobile" in label:
-                human_type(el, applicant.get("phone", ""))
+                type_phone(el, applicant.get("phone", ""))
             elif "email" in label:
                 human_type(el, applicant.get("email", ""))
             elif "name" in label and applicant.get("full_name"):
