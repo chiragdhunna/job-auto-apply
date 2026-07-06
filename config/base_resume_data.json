@@ -1,59 +1,140 @@
 {
-  "name": "Your Name",
-  "headline": "Python Backend & GenAI Engineer",
-  "email": "you@example.com",
-  "phone": "+00 00000 00000",
-  "location": "City, Country",
-  "work_authorization": "e.g. UK Skilled Worker visa / Indian citizen / EU work permit",
+  "name": "Chirag Dhunna",
+  "headline": "Full-Stack Software Engineer | Python Backend & GenAI",
+  "email": "chiragdhunna2468@gmail.com",
+  "phone": "+91 935 334 8691",
+  "location": "Pune, Maharashtra, India",
+  "work_authorization": "Indian citizen — seeking UK Skilled Worker visa sponsorship",
   "links": {
-    "linkedin": "https://www.linkedin.com/in/your-handle",
-    "github": "https://github.com/your-handle",
-    "portfolio": "https://your-site.dev"
+    "linkedin": "https://www.linkedin.com/in/chiragdhunna/",
+    "github": "https://github.com/chiragdhunna",
+    "portfolio": "https://chiragdhunna.github.io"
   },
-  "summary": "One- or two-sentence professional summary highlighting your strongest, most relevant experience for the roles you are targeting.",
+  "summary": "Full-Stack Software Engineer with 1+ years of experience building scalable applications across cloud and mobile platforms. Skilled in AWS, Azure, CI/CD pipelines, system design, large language model integration, and RESTful API development.",
   "skills": {
-    "languages": ["Python", "Dart", "SQL", "JavaScript", "TypeScript"],
-    "backend": ["FastAPI", "Flask", "Django", "REST APIs", "WebSockets"],
-    "genai": ["LangChain", "RAG", "Gemini API", "OpenAI API", "Vector databases", "Prompt engineering"],
-    "mobile": ["Flutter", "Dart", "Provider/Riverpod", "REST integration"],
-    "cloud_devops": ["Docker", "AWS", "GCP", "CI/CD", "GitHub Actions"],
-    "databases": ["PostgreSQL", "SQLite", "MongoDB", "Redis"]
+    "languages": ["C++", "Python", "JavaScript", "Java", "Dart"],
+    "backend": [
+      "Spring Boot",
+      "Node.js",
+      "Express.js",
+      "REST APIs",
+      "OAuth2",
+      "JWT",
+      "Domain-Driven Design"
+    ],
+    "genai": ["AI/LLM Integration", "Prompt engineering", "API chaining"],
+    "mobile": ["Flutter", "Android SDK", "Fastlane"],
+    "cloud_devops": ["AWS", "Azure", "CI/CD", "Git", "GitHub"],
+    "databases": ["MongoDB", "MySQL", "PostgreSQL", "Firebase", "SQLite"],
+    "other": ["React", "LiveKit"]
   },
   "experience": [
     {
-      "company": "Company Name",
-      "title": "Software Engineer",
-      "location": "City, Country",
-      "start": "2023-01",
+      "company": "Tata Consultancy Services (TCS)",
+      "title": "Full Stack Developer",
+      "location": "Pune, India",
+      "start": "2025-04",
       "end": "Present",
       "highlights": [
-        "Impact-driven achievement with a concrete metric (e.g. reduced p95 latency by 40%).",
-        "Shipped a feature/system relevant to your target roles, noting scale or outcome.",
-        "Collaboration / ownership highlight that demonstrates seniority."
+        "Architected enterprise conversational AI solutions on AWS and Azure, enabling chatbot deployments that scaled to 10,000+ concurrent users with 99.9% uptime.",
+        "Engineered full-stack chatbot interfaces in React with real-time dynamic flows, increasing end-user engagement by 30% across 3 production client accounts.",
+        "Developed backend microservices using Java and Spring Boot for conversation orchestration and OAuth2 authentication, cutting API response latency by 25%.",
+        "Implemented AI/LLM-powered workflows into 3 enterprise systems via prompt engineering and API chaining, decreasing manual operational workload by 40%."
+      ]
+    },
+    {
+      "company": "BlueMango Labs",
+      "title": "Software Development Engineer",
+      "location": "Bhopal, India",
+      "start": "2024-07",
+      "end": "2024-12",
+      "highlights": [
+        "Automated iOS and Android build distribution using Fastlane scripts, shortening release cycle duration by 50% and eliminating manual handoffs for a 10-person QA team.",
+        "Localized application content for 5 languages using Flutter internationalization framework, expanding the product's reach into 3 new international markets.",
+        "Strengthened audio and video call reliability via LiveKit SDK, decreasing connection failure rates by 35% and improving average call quality scores by one tier.",
+        "Delivered a live streaming pipeline with under 500ms end-to-end latency using LiveKit, supporting 1,000+ concurrent viewers without degradation under peak load."
+      ]
+    },
+    {
+      "company": "BlueMango Labs",
+      "title": "Software Development Engineer Intern",
+      "location": "Bhopal, India",
+      "start": "2024-01",
+      "end": "2024-06",
+      "highlights": [
+        "Redesigned mobile interfaces for SuperAstro and Kosmic apps through 4 rounds of user research and A/B-tested prototypes, achieving a 25% gain in usability scores.",
+        "Established REST API and message broker connections to the app data layer, raising system throughput capacity to handle a 2x spike in peak-hour traffic.",
+        "Deployed Firebase Cloud Messaging push notifications, resulting in a 20% rise in daily active users within 30 days of launch."
       ]
     }
   ],
   "education": [
     {
-      "institution": "University Name",
-      "degree": "B.Tech in Computer Science",
-      "location": "City, Country",
-      "start": "2019",
-      "end": "2023",
-      "details": "GPA / relevant coursework / honors"
+      "institution": "RGPV University",
+      "degree": "Bachelor of Engineering in Computer Science",
+      "location": "Bhopal, India",
+      "start": "2020-06",
+      "end": "2024-05",
+      "details": "GPA: 8.7/10.0"
     }
   ],
   "projects": [
     {
-      "name": "Project Name",
-      "tech": ["Python", "FastAPI", "Gemini"],
-      "description": "What it does and the measurable impact or interesting technical challenge.",
-      "link": "https://github.com/your-handle/project"
+      "name": "Chat Go",
+      "tech": ["React", "Node.js", "WebSocket", "Express.js", "JWT"],
+      "description": "Real-time chat application with WebSocket messaging, JWT auth, and media uploads. Node.js/Express backend with OpenAPI docs; React Vite frontend with real-time state updates.",
+      "link": "https://github.com/chiragdhunna/chat_go"
+    },
+    {
+      "name": "Vyra",
+      "tech": [
+        "Flutter",
+        "FastAPI",
+        "Whisper",
+        "Neural voice synthesis",
+        "Swappable LLM backends"
+      ],
+      "description": "AI companion app with a Flutter frontend and FastAPI backend, featuring speech transcription and voice synthesis with pluggable LLM providers.",
+      "link": "https://github.com/chiragdhunna/REPLACE-repo-name"
+    },
+    {
+      "name": "job-auto-apply",
+      "tech": [
+        "Python",
+        "FastAPI",
+        "Playwright",
+        "Gemini API",
+        "Ollama",
+        "Streamlit",
+        "APScheduler"
+      ],
+      "description": "Automated job discovery, JD-fit scoring, resume tailoring, and application submission system targeting UK roles with visa sponsorship.",
+      "link": "https://github.com/chiragdhunna/job-auto-apply"
+    },
+    {
+      "name": "Montra",
+      "tech": ["Flutter", "Node.js", "PostgreSQL"],
+      "description": "Smart financial manager app helping users track expenses, income, budgets, and financial goals with an intuitive UI and interactive charts. Backend API supports secure authentication, transaction tracking, and data exports.",
+      "link": "https://github.com/chiragdhunna/montra"
+    },
+    {
+      "name": "GPT Jr",
+      "tech": ["Flutter", "ChatGPT API", "DALL·E API"],
+      "description": "Flutter app integrating ChatGPT and DALL·E APIs, enabling voice-based conversations and AI-generated images for an interactive experience.",
+      "link": "https://github.com/chiragdhunna/GPT-Jr"
     }
   ],
-  "certifications": [],
+  "certifications": [
+    "Microsoft Certified: Azure Solutions Architect Expert",
+    "Microsoft Certified: Azure AI Engineer Associate",
+    "Microsoft Certified: Azure Administrator Associate",
+    "Microsoft Certified: Azure Data Scientist Associate",
+    "Microsoft Certified: DevOps Engineer Expert",
+    "AWS Certified Solutions Architect – Associate",
+    "AWS Certified AI Practitioner"
+  ],
   "preferences": {
-    "notice_period": "e.g. Immediate / 30 days",
+    "notice_period": "90 days",
     "willing_to_relocate": true,
     "remote_ok": true,
     "expected_salary_lpa": 10

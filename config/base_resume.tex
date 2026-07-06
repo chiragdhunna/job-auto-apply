@@ -1,0 +1,210 @@
+\documentclass[10pt, letterpaper]{article}
+
+\usepackage[
+    ignoreheadfoot,
+    top=0.45 cm,
+    bottom=0.45 cm,
+    left=1.4 cm,
+    right=1.4 cm,
+    footskip=0.45 cm,
+]{geometry}
+\usepackage{titlesec}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage[dvipsnames]{xcolor}
+\definecolor{primaryColor}{RGB}{0, 0, 0}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage[
+    pdftitle={Chirag Dhunna Resume},
+    pdfauthor={Chirag Dhunna},
+    pdfcreator={Chirag Dhunna},
+    colorlinks=true,
+    urlcolor=primaryColor
+]{hyperref}
+\usepackage[pscoord]{eso-pic}
+\usepackage{calc}
+\usepackage{bookmark}
+\usepackage{lastpage}
+\usepackage{changepage}
+\usepackage{paracol}
+\usepackage{ifthen}
+\usepackage{needspace}
+\usepackage{xcolor}
+\definecolor{highlightColor}{HTML}{000000}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{charter}
+\input{glyphtounicode}
+\pdfgentounicode=1
+
+\raggedright
+\AtBeginEnvironment{adjustwidth}{\partopsep0pt}
+\pagestyle{empty}
+\setcounter{secnumdepth}{0}
+\setlength{\parindent}{0pt}
+\setlength{\topskip}{0pt}
+\setlength{\columnsep}{0.15cm}
+\pagenumbering{gobble}
+
+\titleformat{\section}{\needspace{4\baselineskip}\bfseries\large}{}{0pt}{}[\vspace{1pt}\titlerule]
+\titlespacing{\section}{-1pt}{0.15 cm}{0.12 cm}
+
+\renewcommand\labelitemi{$\vcenter{\hbox{\small$\bullet$}}$}
+\newenvironment{highlights}{
+    \begin{itemize}[
+        topsep=0.06 cm,
+        parsep=0.06 cm,
+        partopsep=0pt,
+        itemsep=0pt,
+        leftmargin=0 cm + 10pt
+    ]
+}{
+    \end{itemize}
+}
+
+\newenvironment{onecolentry}{
+    \begin{adjustwidth}{0 cm + 0.00001 cm}{0 cm + 0.00001 cm}
+}{
+    \end{adjustwidth}
+}
+
+\newenvironment{twocolentry}[2][]{
+    \onecolentry
+    \def\secondColumn{#2}
+    \setcolumnwidth{\fill, 4.5 cm}
+    \begin{paracol}{2}
+}{
+    \switchcolumn \raggedleft \secondColumn
+    \end{paracol}
+    \endonecolentry
+}
+
+\newenvironment{header}{
+    \setlength{\topsep}{0pt}\par\kern\topsep\centering\linespread{1.5}
+}{
+    \par\kern\topsep
+}
+
+\let\hrefWithoutArrow\href
+
+\begin{document}
+    \newcommand{\AND}{\unskip
+        \cleaders\copy\ANDbox\hskip\wd\ANDbox
+        \ignorespaces
+    }
+    \newsavebox\ANDbox
+    \sbox\ANDbox{$|$}
+
+    \begin{header}
+        \fontsize{25 pt}{25 pt}\selectfont \textbf{CHIRAG DHUNNA}
+
+        \vspace{3 pt}
+
+        \normalsize
+        \mbox{\hrefWithoutArrow{mailto:chiragdhunna2468@gmail.com}{chiragdhunna2468@gmail.com}}%
+        \kern 5.0 pt\AND\kern 5.0 pt%
+        \mbox{\hrefWithoutArrow{tel:+919353348691}{+91 935 334 8691}}%
+        \kern 5.0 pt\AND\kern 5.0 pt%
+        \mbox{Pune, Maharashtra, India}%
+        \kern 5.0 pt\AND\kern 5.0 pt%
+        \mbox{\hrefWithoutArrow{https://chiragdhunna.github.io}{chiragdhunna.github.io}}%
+        \kern 5.0 pt\AND\kern 5.0 pt%
+        \mbox{\hrefWithoutArrow{https://www.linkedin.com/in/chiragdhunna/}{LinkedIn}}%
+        \kern 5.0 pt\AND\kern 5.0 pt%
+        \mbox{\hrefWithoutArrow{https://github.com/chiragdhunna}{GitHub}}%
+        \kern 5.0 pt\AND\kern 5.0 pt%
+        \mbox{\hrefWithoutArrow{https://leetcode.com/chiragdhunna/}{LeetCode}}%
+    \end{header}
+
+    \vspace{2pt}
+
+%================== SUMMARY ==================%
+\section{Professional Summary}
+\begin{onecolentry}
+Full-Stack Software Engineer with 1+ years of experience building scalable applications across cloud and mobile platforms. Skilled in AWS, Azure, CI/CD pipelines, system design, large language model integration, and RESTful API development. Proven record of translating complex business requirements into reliable, high-performance software with measurable results.
+\end{onecolentry}
+
+%================== SKILLS ==================%
+\section{Technical Skills}
+\begin{onecolentry}
+    \begin{highlights}
+        \item \textbf{Languages:} C++, Python, JavaScript, Java, Dart 
+        \item \textbf{Frameworks:} React, Spring Boot, Node.js, Express.js, Flutter
+        \item \textbf{Databases:} MongoDB, MySQL, PostgreSQL, Firebase, SQLite 
+        \item \textbf{Cloud \& DevOps:} AWS, Azure, CI/CD, Git, GitHub, Fastlane
+        \item \textbf{Other:} REST APIs, LiveKit, Android SDK, AI/LLM Integration, OAuth2, JWT, Domain-Driven Design
+        \item \textbf{Soft Skills:} Cross-functional Collaboration, Technical Communication, Problem Solving, Agile Teamwork
+    \end{highlights}
+\end{onecolentry}
+
+%================== EXPERIENCE ==================%
+\section{Work Experience}
+
+\begin{twocolentry}{April 2025 -- Present}
+    \textbf{Full Stack Developer,} Tata Consultancy Services (TCS)
+\end{twocolentry}
+\vspace{0.07 cm}
+\begin{onecolentry}
+    \begin{highlights}
+        \item Architected enterprise conversational AI solutions on AWS and Azure, enabling chatbot deployments that scaled to 10,000+ concurrent users with 99.9\% uptime.
+        \item Engineered full-stack chatbot interfaces in React with real-time dynamic flows, increasing end-user engagement by 30\% across 3 production client accounts.
+        \item Developed backend microservices using Java and Spring Boot for conversation orchestration and OAuth2 authentication, cutting API response latency by 25\%; collaborated with cross-functional teams to define and meet service-level agreements.
+        \item Implemented AI/LLM-powered workflows into 3 enterprise systems via prompt engineering and API chaining, decreasing manual operational workload by 40\%.
+    \end{highlights}
+\end{onecolentry}
+
+\vspace{0.1 cm}
+
+\begin{twocolentry}{July 2024 -- December 2024}
+    \textbf{Software Development Engineer,} BlueMango Labs
+\end{twocolentry}
+\vspace{0.07 cm}
+\begin{onecolentry}
+    \begin{highlights}
+        \item Automated iOS and Android build distribution using Fastlane scripts, shortening release cycle duration by 50\% and eliminating manual handoffs for a 10-person QA team.
+        \item Localized application content for 5 languages using Flutter internationalization framework, expanding the product's reach into 3 new international markets.
+        \item Strengthened audio and video call reliability via LiveKit SDK, decreasing connection failure rates by 35\% and improving average call quality scores by one tier.
+        \item Delivered a live streaming pipeline with under 500ms end-to-end latency using LiveKit, supporting 1,000+ concurrent viewers without degradation under peak load.
+    \end{highlights}
+\end{onecolentry}
+
+\vspace{0.1 cm}
+
+\begin{twocolentry}{January 2024 -- June 2024}
+    \textbf{Software Development Engineer Intern,} BlueMango Labs
+\end{twocolentry}
+\vspace{0.07 cm}
+\begin{onecolentry}
+    \begin{highlights}
+        \item Redesigned mobile interfaces for SuperAstro and Kosmic apps through 4 rounds of user research and A/B-tested prototypes, achieving a 25\% gain in usability scores.
+        \item Established REST API and message broker connections to the app data layer, raising system throughput capacity to handle a 2x spike in peak-hour traffic.
+        \item Deployed Firebase Cloud Messaging push notifications, resulting in a 20\% rise in daily active users within 30 days of launch.
+    \end{highlights}
+\end{onecolentry}
+
+%================== PROJECTS ==================%
+\section{Projects}
+
+\begin{twocolentry}{
+    \href{https://github.com/chiragdhunna/montra}{\textbf{GitHub}}
+}
+    \textbf{Montra -- Full-Stack Personal Finance Tracker} (Flutter, Node.js, PostgreSQL)
+\end{twocolentry}
+\vspace{0.07 cm}
+\begin{onecolentry}
+    \begin{highlights}
+        \item Shipped a cross-platform finance tracker with budget planning, multi-account support, and CSV analytics exports, reducing manual expense tracking time by an estimated 3 hours per week per user.
+        \item Constructed a modular RESTful backend using Node.js, PostgreSQL, and Express.js with JWT authentication and role-based access control; achieved under 200ms average API response time.
+        \item Configured SQLite for offline-first data persistence, business logic component (BLoC) state management pattern, and immutable models via code generation, covering 10+ expense categories with real-time dashboard updates.
+    \end{highlights}
+\end{onecolentry}
+
+%================== EDUCATION ==================%
+\section{Education}
+
+\begin{twocolentry}{June 2020 -- May 2024}
+    \textbf{RGPV University} -- Bachelor of Engineering in Computer Science \quad GPA: 8.7/10.0
+\end{twocolentry}
+
+\end{document}

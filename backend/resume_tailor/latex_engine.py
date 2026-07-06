@@ -66,10 +66,25 @@ def _extract_latex(raw: str) -> str:
 
 def generate_resume(job_description: str, base_resume_data: Dict[str, Any]) -> str:
     """Generate a JD-tailored resume as a LaTeX (.tex) string."""
-    resume_json = json.dumps(base_resume_data or {}, ensure_ascii=False, indent=2)
-    prompt = build_tailoring_prompt(job_description, resume_json)
+    resume_repr = _load_base_resume_latex()
+    if resume_repr is None:
+        # Fall back to JSON for prompts (like DEFAULT_LATEX_PROMPT) that expect it.
+        resume_repr = json.dumps(base_resume_data or {}, ensure_ascii=False, indent=2)
+    prompt = build_tailoring_prompt(job_description, resume_repr)
     raw = generate(prompt, expect_json=False)
     return _extract_latex(raw)
+
+
+def _load_base_resume_latex() -> Optional[str]:
+    """Read the owner's real LaTeX resume source, if present.
+
+    Looked up at config/base_resume.tex. Returns None if the file doesn't
+    exist, so callers can fall back to JSON-based prompts.
+    """
+    tex_path = Path(config.BASE_DIR) / "config" / "base_resume.tex"
+    if tex_path.exists():
+        return tex_path.read_text(encoding="utf-8")
+    return None
 
 
 # --------------------------------------------------------------------------- #
