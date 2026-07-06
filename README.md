@@ -236,6 +236,19 @@ python -m automation.indeed_apply --login
 A browser opens; sign in, then press Enter in the terminal to save the session.
 Future runs reuse it.
 
+**Windows (Git Bash / MINGW64) notes:**
+
+- `./run.sh` works as-is — it auto-detects the Windows venv layout
+  (`.venv/Scripts/activate`).
+- For the `--login` commands: Git Bash's mintty terminal often doesn't give
+  Python an interactive stdin, so "press Enter" may not register. Either run
+  them with winpty (`winpty python -m automation.linkedin_apply --login`) or
+  just **close the browser window when you're done logging in** — the session
+  is saved either way.
+- LaTeX: install [MiKTeX](https://miktex.org). Compile your base resume once
+  manually (`pdflatex config/base_resume.tex`) so MiKTeX installs any missing
+  packages up front instead of stalling a scheduled run.
+
 **Docker (API + dashboard only):**
 
 ```bash

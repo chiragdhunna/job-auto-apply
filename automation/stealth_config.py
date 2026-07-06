@@ -104,6 +104,40 @@ def launch_persistent_context(playwright, *, headless: bool = False, profile_dir
     return context
 
 
+def wait_for_manual_login(context, service_name: str) -> None:
+    """Block until the owner finishes logging in manually.
+
+    Preferred: press Enter in the terminal. On consoles where stdin is not a
+    TTY (e.g. Git Bash / mintty on Windows without winpty), ``input()`` raises
+    EOFError immediately — in that case fall back to waiting until the owner
+    CLOSES the browser window, so the login session is still saved.
+    """
+    import sys
+    import time as _time
+
+    if sys.stdin is not None and sys.stdin.isatty():
+        print(
+            f"Log in to {service_name} in the opened window, then press Enter "
+            f"here to save the session…"
+        )
+        try:
+            input()
+            return
+        except EOFError:
+            pass  # fall through to window-close detection
+    print(
+        f"(No interactive terminal detected — log in to {service_name} in the "
+        f"opened window, then simply CLOSE the browser window to save the session. "
+        f"Tip for Git Bash: `winpty python -m ...` makes Enter work here.)"
+    )
+    try:
+        while context.pages:
+            _time.sleep(2)
+    except Exception:
+        # Context/browser already gone — that's exactly our exit condition.
+        pass
+
+
 def human_type(locator, text: str, *, clear: bool = True) -> None:
     """Type into a locator character-by-character with jitter."""
     if text is None:

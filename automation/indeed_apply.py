@@ -35,6 +35,7 @@ from automation.stealth_config import (
     long_delay,
     setup_automation_logging,
     short_delay,
+    wait_for_manual_login,
 )
 from backend import config
 from backend.answer_generator.gemini_answers import _slug, generate_answers
@@ -78,12 +79,11 @@ def open_for_manual_login() -> None:
         context = launch_persistent_context(p, headless=False)
         page = context.new_page()
         page.goto(INDEED_DOMAIN + "/account/login", wait_until="domcontentloaded")
-        print("Log in to Indeed in the opened window, then press Enter here to save the session…")
+        wait_for_manual_login(context, "Indeed")
         try:
-            input()
-        except EOFError:
-            pass
-        context.close()
+            context.close()
+        except Exception:
+            pass  # user already closed the window — session is saved
 
 
 # --------------------------------------------------------------------------- #
