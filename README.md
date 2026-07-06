@@ -361,10 +361,18 @@ per-run application caps. Selectors for LinkedIn/Indeed/ATS DOMs change often �
      `RESUME_REPAIR_ATTEMPTS` LLM repair passes, and finally compiles the
      untailored `config/base_resume.tex` as a fallback so a valid PDF is always
      attached. Gemini rarely needs any of this.
-- **Fallback base resume fails to compile** — your `config/base_resume.tex` may
-  use packages MiKTeX hasn't installed yet. Compile it once manually
-  (`pdflatex config/base_resume.tex`) and let MiKTeX install missing packages,
-  or enable "always install missing packages" in the MiKTeX Console.
+- **"pdflatex timed out" (even on your own base resume)** — almost always
+  MiKTeX blocking on its "install missing package?" GUI dialog, which a
+  background process can't answer. The compiler is now invoked with
+  `--enable-installer` on MiKTeX so packages install automatically, and
+  `LATEX_COMPILE_TIMEOUT` (default 300s) allows for the downloads. Best
+  practice: compile once manually (`pdflatex config/base_resume.tex`) or set
+  "Always install missing packages" in the MiKTeX Console, so all packages are
+  present before scheduled runs.
+- **Want applications flowing NOW, without LLM resume roulette?** — set
+  `RESUME_MODE=base_only` in `.env`: every application attaches your compiled
+  `config/base_resume.tex` (no LLM tailoring calls at all). Scoring still runs
+  normally. Switch back to `auto` when you're on Gemini or a stronger local model.
 - **Resume generated but "not compiled"** — install `tectonic` or `pdflatex`. The
   `.tex` is always saved; only the PDF needs a compiler.
 - **LinkedIn/Indeed "Not logged in"** — run the `--login` command for that platform

@@ -44,7 +44,7 @@ logger = logging.getLogger("job_auto_apply.resume")
 
 RESUME_DIR = Path(config.BASE_DIR) / "data" / "resumes"
 BASE_RESUME_TEX_PATH = Path(config.BASE_DIR) / "config" / "base_resume.tex"
-COMPILE_TIMEOUT = 120
+COMPILE_TIMEOUT = config.LATEX_COMPILE_TIMEOUT  # env: LATEX_COMPILE_TIMEOUT
 MAX_JD_CHARS = 6000  # keep the tailoring prompt bounded (esp. for local models)
 
 
@@ -82,6 +82,35 @@ def _missing_markers(tex: str) -> list:
     return [m for m in _REQUIRED_MARKERS if m not in (tex or "")]
 
 
+def _structural_problems(tex: str) -> list:
+    """All structural problems, not just missing markers.
+
+    Local models sometimes emit documents where every marker is *present* but
+    in the wrong order (e.g. \\section content before \\begin{document}) —
+    presence checks alone pass, then pdflatex fails with
+    "Missing \\begin{document}". Check order too.
+    """
+    tex = tex or ""
+    problems = [f"missing {m}" for m in _missing_markers(tex)]
+    if problems:
+        return problems
+    dc = tex.find(r"\documentclass")
+    bd = tex.find(r"\begin{document}")
+    ed = tex.rfind(r"\end{document}")
+    if not (dc < bd < ed):
+        problems.append(
+            r"markers are out of order — \documentclass must come first, then "
+            r"\begin{document}, then the content, then \end{document}"
+        )
+    first_section = tex.find(r"\section")
+    if first_section != -1 and first_section < bd:
+        problems.append(
+            r"body content (\section ...) appears BEFORE \begin{document}; all "
+            r"visible content must come after \begin{document}"
+        )
+    return problems
+
+
 # --------------------------------------------------------------------------- #
 # Generation                                                                   #
 # --------------------------------------------------------------------------- #
@@ -113,25 +142,25 @@ def generate_resume(job_description: str, base_resume_data: Dict[str, Any]) -> s
     raw = generate(prompt, expect_json=False)
     tex = _extract_latex(raw)
 
-    missing = _missing_markers(tex)
-    if missing:
+    problems = _structural_problems(tex)
+    if problems:
         logger.warning(
-            "Generated LaTeX is structurally invalid (missing: %s) — requesting "
-            "a corrected document from the LLM.",
-            ", ".join(missing),
+            "Generated LaTeX is structurally invalid (%s) — requesting a "
+            "corrected document from the LLM.",
+            "; ".join(problems),
         )
         problem = (
-            "The document is missing required structural elements: "
-            + ", ".join(missing)
+            "The document has structural problems: "
+            + "; ".join(problems)
             + ". All visible text must appear between \\begin{document} and "
             "\\end{document}, and the document must be complete."
         )
         raw2 = generate(build_repair_prompt(tex, problem), expect_json=False)
         tex2 = _extract_latex(raw2)
-        if not _missing_markers(tex2):
+        if not _structural_problems(tex2):
             return tex2
         logger.warning("Corrected document is still structurally invalid; keeping best effort.")
-        if len(_missing_markers(tex2)) < len(missing):
+        if len(_structural_problems(tex2)) < len(problems):
             return tex2
     return tex
 
@@ -144,6 +173,29 @@ def _detect_compiler() -> Optional[str]:
         if shutil.which(name):
             return name
     return None
+
+
+_IS_MIKTEX: Optional[bool] = None
+
+
+def _is_miktex() -> bool:
+    """Detect the MiKTeX distribution (needs --enable-installer to not hang).
+
+    MiKTeX's default "ask me before installing packages" setting pops a GUI
+    dialog that a background process can never answer — pdflatex then blocks
+    until our timeout kills it. --enable-installer makes missing packages
+    install automatically instead.
+    """
+    global _IS_MIKTEX
+    if _IS_MIKTEX is None:
+        try:
+            proc = subprocess.run(
+                ["pdflatex", "--version"], capture_output=True, text=True, timeout=20
+            )
+            _IS_MIKTEX = "miktex" in ((proc.stdout or "") + (proc.stderr or "")).lower()
+        except Exception:  # noqa: BLE001
+            _IS_MIKTEX = False
+    return _IS_MIKTEX
 
 
 def compile_latex(tex_string: str) -> bytes:
@@ -172,10 +224,12 @@ def compile_latex(tex_string: str) -> bytes:
                 "pdflatex",
                 "-interaction=nonstopmode",
                 "-halt-on-error",
-                "-output-directory",
-                tmp,
-                tex_path,
             ]
+            if _is_miktex():
+                # Auto-install missing packages instead of blocking on a GUI
+                # dialog (which times out headless runs).
+                base_cmd.append("--enable-installer")
+            base_cmd += ["-output-directory", tmp, tex_path]
             cmds = [base_cmd, base_cmd]
 
         last_output = ""
@@ -221,13 +275,14 @@ def _compile_with_repair(tex: str) -> Tuple[Optional[bytes], str]:
         except Exception:  # noqa: BLE001 — repair is best-effort; fallback follows
             logger.exception("LaTeX repair generation failed; skipping to fallback.")
             break
-        if _missing_markers(fixed):
+        fixed_problems = _structural_problems(fixed)
+        if fixed_problems:
             logger.warning(
-                "Repaired LaTeX still structurally invalid (missing: %s).",
-                ", ".join(_missing_markers(fixed)),
+                "Repaired LaTeX still structurally invalid (%s).",
+                "; ".join(fixed_problems),
             )
             current = fixed
-            last_error = "Document is incomplete: " + ", ".join(_missing_markers(fixed))
+            last_error = "Document has structural problems: " + "; ".join(fixed_problems)
             continue
         try:
             return compile_latex(fixed), fixed
@@ -259,6 +314,23 @@ def _safe(text: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "_", (text or "").strip())[:40] or "resume"
 
 
+def _store_version(db: Session, job: Job, tex: str, pdf_bytes: Optional[bytes]) -> ResumeVersion:
+    """Persist a resume_versions row (+ PDF file when we have bytes)."""
+    pdf_path: Optional[str] = None
+    if pdf_bytes:
+        RESUME_DIR.mkdir(parents=True, exist_ok=True)
+        ts = dt.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        fname = f"job_{job.id}_{_safe(job.company)}_{ts}.pdf"
+        out = RESUME_DIR / fname
+        with open(out, "wb") as f:
+            f.write(pdf_bytes)
+        pdf_path = str(out.resolve())
+        logger.info("Compiled resume for job %s -> %s", job.id, pdf_path)
+    rv = crud.create_resume_version(db, job_id=job.id, tex_content=tex, pdf_path=pdf_path)
+    db.commit()
+    return rv
+
+
 def tailor_and_store(
     db: Session,
     job: Job,
@@ -273,6 +345,29 @@ def tailor_and_store(
     """
     if base_resume_data is None:
         base_resume_data = config.load_base_resume_data()
+
+    # Deterministic mode: skip LLM tailoring entirely, always attach the
+    # compiled base resume. Fast, reliable, zero LLM calls.
+    if config.RESUME_MODE == "base_only":
+        base_tex = _fallback_base_resume_tex()
+        if base_tex:
+            pdf_bytes = None
+            try:
+                pdf_bytes = compile_latex(base_tex)
+            except LatexCompileError as exc:
+                logger.error(
+                    "RESUME_MODE=base_only: base resume failed to compile: %s",
+                    str(exc)[-400:],
+                )
+            noted = (
+                "% NOTE: RESUME_MODE=base_only — untailored base resume attached.\n"
+                + base_tex
+            )
+            return _store_version(db, job, noted, pdf_bytes)
+        logger.warning(
+            "RESUME_MODE=base_only but config/base_resume.tex is missing — "
+            "using the normal tailoring pipeline instead."
+        )
 
     jd = (job.description_raw or f"{job.title} at {job.company}").strip()
     if len(jd) > MAX_JD_CHARS:
@@ -321,17 +416,4 @@ def tailor_and_store(
                     job.id,
                 )
 
-    pdf_path: Optional[str] = None
-    if pdf_bytes:
-        RESUME_DIR.mkdir(parents=True, exist_ok=True)
-        ts = dt.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        fname = f"job_{job.id}_{_safe(job.company)}_{ts}.pdf"
-        out = RESUME_DIR / fname
-        with open(out, "wb") as f:
-            f.write(pdf_bytes)
-        pdf_path = str(out.resolve())
-        logger.info("Compiled resume for job %s -> %s", job.id, pdf_path)
-
-    rv = crud.create_resume_version(db, job_id=job.id, tex_content=final_tex, pdf_path=pdf_path)
-    db.commit()
-    return rv
+    return _store_version(db, job, final_tex, pdf_bytes)

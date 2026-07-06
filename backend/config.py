@@ -68,6 +68,21 @@ try:
 except ValueError:
     RESUME_REPAIR_ATTEMPTS = 1
 
+# Max seconds per LaTeX compiler invocation. First-ever compiles can be slow
+# when MiKTeX/tectonic download missing packages on the fly.
+try:
+    LATEX_COMPILE_TIMEOUT: int = int(os.getenv("LATEX_COMPILE_TIMEOUT", "300") or 300)
+except ValueError:
+    LATEX_COMPILE_TIMEOUT = 300
+
+# Resume strategy:
+#   auto      -> LLM-tailored resume with validate/repair passes, then base
+#                resume as fallback (default).
+#   base_only -> skip LLM tailoring entirely; always attach the compiled
+#                config/base_resume.tex. Deterministic and fast — useful while
+#                running on a slow/unreliable local model.
+RESUME_MODE: str = (os.getenv("RESUME_MODE") or "auto").strip().lower()
+
 LINKEDIN_EMAIL: str = os.getenv("LINKEDIN_EMAIL", "")
 LINKEDIN_PASSWORD: str = os.getenv("LINKEDIN_PASSWORD", "")
 INDEED_EMAIL: str = os.getenv("INDEED_EMAIL", "")
