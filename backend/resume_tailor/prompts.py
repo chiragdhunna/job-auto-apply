@@ -208,3 +208,28 @@ def build_tailoring_prompt(job_description: str, base_resume_data_json: str) -> 
         .replace("{job_description}", job_description or "")
         .replace("{base_resume_data}", base_resume_data_json or "{}")
     )
+
+
+# Used when a generated document is structurally broken or fails to compile —
+# one corrective pass with the concrete problem attached.
+LATEX_REPAIR_PROMPT = r"""The following LaTeX resume is broken and does not compile.
+
+PROBLEM:
+{problem}
+
+Return the corrected, COMPLETE LaTeX document — from \documentclass through
+\end{document} — and nothing else (no commentary, no analysis, no markdown
+fences). Keep the resume content identical; fix ONLY the structural/syntax
+problems. Every piece of visible text must be between \begin{document} and
+\end{document}.
+
+LATEX SOURCE TO FIX:
+{latex_source}"""
+
+
+def build_repair_prompt(latex_source: str, problem: str) -> str:
+    return (
+        LATEX_REPAIR_PROMPT
+        .replace("{problem}", problem or "It fails to compile.")
+        .replace("{latex_source}", latex_source or "")
+    )

@@ -7,6 +7,14 @@ Public interface (as specified):
 Plus a convenience that ties them to the DB:
     tailor_and_store(db, job) -> ResumeVersion
 
+Robustness pipeline (local models emit broken LaTeX more often than Gemini):
+
+    generate  -> structural validation (one corrective LLM pass if invalid)
+    compile   -> on failure, up to RESUME_REPAIR_ATTEMPTS LLM repair passes
+    fallback  -> if still failing, compile the owner's untailored
+                 config/base_resume.tex so a valid PDF is ALWAYS produced
+                 (an untailored application beats no application)
+
 generate_resume routes through the shared LLM client (Gemini -> Ollama fallback).
 compile_latex shells out to `tectonic` (preferred) or `pdflatex`.
 """
@@ -22,7 +30,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -30,12 +38,14 @@ from backend import config
 from backend.db import crud
 from backend.db.models import Job, ResumeVersion
 from backend.llm.client import generate
-from backend.resume_tailor.prompts import build_tailoring_prompt
+from backend.resume_tailor.prompts import build_repair_prompt, build_tailoring_prompt
 
 logger = logging.getLogger("job_auto_apply.resume")
 
 RESUME_DIR = Path(config.BASE_DIR) / "data" / "resumes"
+BASE_RESUME_TEX_PATH = Path(config.BASE_DIR) / "config" / "base_resume.tex"
 COMPILE_TIMEOUT = 120
+MAX_JD_CHARS = 6000  # keep the tailoring prompt bounded (esp. for local models)
 
 
 class LatexCompileError(RuntimeError):
@@ -43,7 +53,7 @@ class LatexCompileError(RuntimeError):
 
 
 # --------------------------------------------------------------------------- #
-# Generation                                                                   #
+# Extraction + validation                                                      #
 # --------------------------------------------------------------------------- #
 def _extract_latex(raw: str) -> str:
     """Pull clean LaTeX out of a model response (strip fences / surrounding prose)."""
@@ -64,27 +74,66 @@ def _extract_latex(raw: str) -> str:
     return text
 
 
-def generate_resume(job_description: str, base_resume_data: Dict[str, Any]) -> str:
-    """Generate a JD-tailored resume as a LaTeX (.tex) string."""
-    resume_repr = _load_base_resume_latex()
-    if resume_repr is None:
-        # Fall back to JSON for prompts (like DEFAULT_LATEX_PROMPT) that expect it.
-        resume_repr = json.dumps(base_resume_data or {}, ensure_ascii=False, indent=2)
-    prompt = build_tailoring_prompt(job_description, resume_repr)
-    raw = generate(prompt, expect_json=False)
-    return _extract_latex(raw)
+_REQUIRED_MARKERS = (r"\documentclass", r"\begin{document}", r"\end{document}")
 
 
+def _missing_markers(tex: str) -> list:
+    """Structural sanity check: which required LaTeX markers are absent."""
+    return [m for m in _REQUIRED_MARKERS if m not in (tex or "")]
+
+
+# --------------------------------------------------------------------------- #
+# Generation                                                                   #
+# --------------------------------------------------------------------------- #
 def _load_base_resume_latex() -> Optional[str]:
     """Read the owner's real LaTeX resume source, if present.
 
     Looked up at config/base_resume.tex. Returns None if the file doesn't
     exist, so callers can fall back to JSON-based prompts.
     """
-    tex_path = Path(config.BASE_DIR) / "config" / "base_resume.tex"
-    if tex_path.exists():
-        return tex_path.read_text(encoding="utf-8")
+    if BASE_RESUME_TEX_PATH.exists():
+        return BASE_RESUME_TEX_PATH.read_text(encoding="utf-8")
     return None
+
+
+def generate_resume(job_description: str, base_resume_data: Dict[str, Any]) -> str:
+    """Generate a JD-tailored resume as a LaTeX (.tex) string.
+
+    The owner's real LaTeX resume (config/base_resume.tex) is preferred as the
+    source representation; falls back to the structured JSON for prompts that
+    expect it. Local models sometimes emit structurally broken documents
+    (content before ``\\begin{document}`` or missing it entirely) — if the
+    output fails the structural check, one corrective pass is requested.
+    """
+    resume_repr = _load_base_resume_latex()
+    if resume_repr is None:
+        # Fall back to JSON for prompts (like DEFAULT_LATEX_PROMPT) that expect it.
+        resume_repr = json.dumps(base_resume_data or {}, ensure_ascii=False, indent=2)
+    prompt = build_tailoring_prompt(job_description, resume_repr)
+    raw = generate(prompt, expect_json=False)
+    tex = _extract_latex(raw)
+
+    missing = _missing_markers(tex)
+    if missing:
+        logger.warning(
+            "Generated LaTeX is structurally invalid (missing: %s) — requesting "
+            "a corrected document from the LLM.",
+            ", ".join(missing),
+        )
+        problem = (
+            "The document is missing required structural elements: "
+            + ", ".join(missing)
+            + ". All visible text must appear between \\begin{document} and "
+            "\\end{document}, and the document must be complete."
+        )
+        raw2 = generate(build_repair_prompt(tex, problem), expect_json=False)
+        tex2 = _extract_latex(raw2)
+        if not _missing_markers(tex2):
+            return tex2
+        logger.warning("Corrected document is still structurally invalid; keeping best effort.")
+        if len(_missing_markers(tex2)) < len(missing):
+            return tex2
+    return tex
 
 
 # --------------------------------------------------------------------------- #
@@ -148,6 +197,61 @@ def compile_latex(tex_string: str) -> bytes:
             return f.read()
 
 
+def _compile_with_repair(tex: str) -> Tuple[Optional[bytes], str]:
+    """Compile; on failure, ask the LLM to repair (up to RESUME_REPAIR_ATTEMPTS).
+
+    Returns (pdf_bytes | None, tex_actually_used).
+    """
+    try:
+        return compile_latex(tex), tex
+    except LatexCompileError as exc:
+        last_error = str(exc)
+        logger.warning("LaTeX compile failed: %s", last_error[-400:])
+
+    current = tex
+    for attempt in range(1, max(0, config.RESUME_REPAIR_ATTEMPTS) + 1):
+        logger.info(
+            "Requesting LaTeX repair from the LLM (attempt %d/%d)…",
+            attempt,
+            config.RESUME_REPAIR_ATTEMPTS,
+        )
+        try:
+            raw = generate(build_repair_prompt(current, last_error[-1500:]), expect_json=False)
+            fixed = _extract_latex(raw)
+        except Exception:  # noqa: BLE001 — repair is best-effort; fallback follows
+            logger.exception("LaTeX repair generation failed; skipping to fallback.")
+            break
+        if _missing_markers(fixed):
+            logger.warning(
+                "Repaired LaTeX still structurally invalid (missing: %s).",
+                ", ".join(_missing_markers(fixed)),
+            )
+            current = fixed
+            last_error = "Document is incomplete: " + ", ".join(_missing_markers(fixed))
+            continue
+        try:
+            return compile_latex(fixed), fixed
+        except LatexCompileError as exc:
+            last_error = str(exc)
+            current = fixed
+            logger.warning("Repaired LaTeX still fails to compile: %s", last_error[-400:])
+    return None, tex
+
+
+def _fallback_base_resume_tex() -> Optional[str]:
+    """The owner's untailored base resume, with the known template fix applied.
+
+    The owner's prompt mandates deleting the `\\vspace{2pt}` immediately before
+    the SUMMARY section comment (it pushes Education to page 2), so the same
+    fix is applied deterministically here.
+    """
+    tex = _load_base_resume_latex()
+    if not tex:
+        return None
+    tex = re.sub(r"(?m)^[ \t]*\\vspace\{2pt\}[ \t]*\n(?=\s*%=+ *SUMMARY)", "", tex)
+    return tex
+
+
 # --------------------------------------------------------------------------- #
 # DB-tied convenience                                                          #
 # --------------------------------------------------------------------------- #
@@ -162,19 +266,63 @@ def tailor_and_store(
 ) -> ResumeVersion:
     """Generate + compile a tailored resume and record a resume_versions row.
 
-    The .tex is always stored. If compilation fails (or no compiler is present),
-    the row is still created with pdf_path=None so the owner can inspect/fix the
-    LaTeX from the dashboard.
+    Pipeline: tailored LaTeX -> compile -> LLM repair pass(es) -> untailored
+    base-resume fallback. The .tex actually used is always stored; if nothing
+    compiles (e.g. no LaTeX engine installed) the row is created with
+    pdf_path=None so the owner can inspect/fix from the dashboard.
     """
     if base_resume_data is None:
         base_resume_data = config.load_base_resume_data()
 
-    jd = job.description_raw or f"{job.title} at {job.company}"
+    jd = (job.description_raw or f"{job.title} at {job.company}").strip()
+    if len(jd) > MAX_JD_CHARS:
+        jd = jd[:MAX_JD_CHARS] + "\n...[truncated]"
+
     tex = generate_resume(jd, base_resume_data)
+    final_tex = tex
+    pdf_bytes: Optional[bytes] = None
+
+    compiler = _detect_compiler()
+    if compiler is None:
+        logger.warning(
+            "No LaTeX compiler found — storing .tex only for job %s. Install "
+            "`tectonic` or `pdflatex` to produce PDFs.",
+            job.id,
+        )
+    else:
+        pdf_bytes, final_tex = _compile_with_repair(tex)
+        if pdf_bytes is None:
+            base_tex = _fallback_base_resume_tex()
+            if base_tex:
+                logger.warning(
+                    "Tailored LaTeX unusable after repair for job %s — falling "
+                    "back to the untailored base resume (config/base_resume.tex).",
+                    job.id,
+                )
+                try:
+                    pdf_bytes = compile_latex(base_tex)
+                    final_tex = (
+                        "% NOTE: tailored generation failed to compile — this is the\n"
+                        "% untailored base resume, used as a fallback for this job.\n"
+                        + base_tex
+                    )
+                except LatexCompileError as exc:
+                    logger.error(
+                        "Fallback base resume ALSO failed to compile: %s "
+                        "(check that its packages are installed — run pdflatex "
+                        "on config/base_resume.tex once manually)",
+                        str(exc)[-400:],
+                    )
+                    final_tex = tex  # keep the LLM output for debugging
+            else:
+                logger.warning(
+                    "No config/base_resume.tex available for fallback — job %s "
+                    "gets .tex only.",
+                    job.id,
+                )
 
     pdf_path: Optional[str] = None
-    try:
-        pdf_bytes = compile_latex(tex)
+    if pdf_bytes:
         RESUME_DIR.mkdir(parents=True, exist_ok=True)
         ts = dt.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         fname = f"job_{job.id}_{_safe(job.company)}_{ts}.pdf"
@@ -182,10 +330,8 @@ def tailor_and_store(
         with open(out, "wb") as f:
             f.write(pdf_bytes)
         pdf_path = str(out.resolve())
-        logger.info("Compiled tailored resume for job %s -> %s", job.id, pdf_path)
-    except LatexCompileError as exc:
-        logger.warning("Resume for job %s generated but not compiled: %s", job.id, exc)
+        logger.info("Compiled resume for job %s -> %s", job.id, pdf_path)
 
-    rv = crud.create_resume_version(db, job_id=job.id, tex_content=tex, pdf_path=pdf_path)
+    rv = crud.create_resume_version(db, job_id=job.id, tex_content=final_tex, pdf_path=pdf_path)
     db.commit()
     return rv

@@ -13,7 +13,11 @@ cd "$(dirname "$0")"
 # --- venv (optional) ------------------------------------------------------- #
 if [ -d ".venv" ]; then
   # shellcheck disable=SC1091
-  source .venv/Scripts/activate
+  if [ -f ".venv/Scripts/activate" ]; then
+    source .venv/Scripts/activate   # Windows (Git Bash / MINGW)
+  elif [ -f ".venv/bin/activate" ]; then
+    source .venv/bin/activate       # Linux / macOS
+  fi
 fi
 
 PY="${PYTHON:-python3}"

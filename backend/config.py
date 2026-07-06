@@ -49,6 +49,25 @@ try:
 except ValueError:
     OLLAMA_TIMEOUT = 600
 
+# Context window (tokens) for Ollama requests. Ollama's DEFAULT (~4096) is too
+# small for the resume-tailoring prompt (owner instructions + base resume LaTeX
+# + JD ≈ 5-6k tokens) and Ollama SILENTLY truncates over-long prompts — the
+# model never sees the instructions and emits structureless garbage. Raising
+# this costs RAM (roughly 1-2 GB extra for an 8B model at 16k).
+try:
+    OLLAMA_NUM_CTX: int = int(os.getenv("OLLAMA_NUM_CTX", "16384") or 16384)
+except ValueError:
+    OLLAMA_NUM_CTX = 16384
+
+# How many LLM "repair" passes to attempt when generated resume LaTeX fails to
+# compile. Each pass is one extra LLM call (slow on CPU Ollama). If repairs
+# fail, the untailored config/base_resume.tex is compiled as a fallback so a
+# valid PDF is still produced.
+try:
+    RESUME_REPAIR_ATTEMPTS: int = int(os.getenv("RESUME_REPAIR_ATTEMPTS", "1") or 1)
+except ValueError:
+    RESUME_REPAIR_ATTEMPTS = 1
+
 LINKEDIN_EMAIL: str = os.getenv("LINKEDIN_EMAIL", "")
 LINKEDIN_PASSWORD: str = os.getenv("LINKEDIN_PASSWORD", "")
 INDEED_EMAIL: str = os.getenv("INDEED_EMAIL", "")

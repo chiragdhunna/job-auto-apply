@@ -55,9 +55,26 @@ class OllamaProvider:
         return self.is_reachable()
 
     def generate(self, prompt: str, expect_json: bool = False) -> str:
-        payload = {"model": self.model, "prompt": prompt, "stream": False}
+        # Explicit num_ctx: Ollama's default (~4k tokens) silently TRUNCATES
+        # longer prompts — the model loses the instructions and produces
+        # garbage. See OLLAMA_NUM_CTX in .env.
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {"num_ctx": config.OLLAMA_NUM_CTX},
+        }
         if expect_json:
             payload["format"] = "json"
+        approx_tokens = len(prompt) // 4  # rough heuristic
+        if approx_tokens > (config.OLLAMA_NUM_CTX * 3) // 4:
+            logger.warning(
+                "Prompt is ~%d tokens, close to/over num_ctx=%d — Ollama may "
+                "truncate the prompt or cut the output short. Raise "
+                "OLLAMA_NUM_CTX in .env if results look wrong.",
+                approx_tokens,
+                config.OLLAMA_NUM_CTX,
+            )
         try:
             resp = requests.post(
                 f"{self.host}/api/generate", json=payload, timeout=self.timeout

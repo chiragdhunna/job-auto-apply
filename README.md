@@ -338,6 +338,20 @@ per-run application caps. Selectors for LinkedIn/Indeed/ATS DOMs change often �
   `GEMINI_API_KEY` — Gemini generates a resume in seconds. When the LLM is down
   or timing out, the application batch stops early and the remaining jobs stay
   `queued` so they're retried automatically next cycle.
+- **Generated LaTeX is garbage / "Missing \begin{document}"** — two usual causes:
+  1. *Ollama context truncation*: the tailoring prompt (instructions + base
+     resume + JD) is ~5-6k tokens, larger than Ollama's default ~4k window, and
+     Ollama silently drops the start of over-long prompts. `OLLAMA_NUM_CTX`
+     (default 16384) fixes this.
+  2. *Small-model reliability*: local 8B models sometimes emit broken documents
+     anyway. The engine now validates structure, runs up to
+     `RESUME_REPAIR_ATTEMPTS` LLM repair passes, and finally compiles the
+     untailored `config/base_resume.tex` as a fallback so a valid PDF is always
+     attached. Gemini rarely needs any of this.
+- **Fallback base resume fails to compile** — your `config/base_resume.tex` may
+  use packages MiKTeX hasn't installed yet. Compile it once manually
+  (`pdflatex config/base_resume.tex`) and let MiKTeX install missing packages,
+  or enable "always install missing packages" in the MiKTeX Console.
 - **Resume generated but "not compiled"** — install `tectonic` or `pdflatex`. The
   `.tex` is always saved; only the PDF needs a compiler.
 - **LinkedIn/Indeed "Not logged in"** — run the `--login` command for that platform
