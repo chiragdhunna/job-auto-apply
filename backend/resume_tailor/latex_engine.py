@@ -377,7 +377,25 @@ def tailor_and_store(
     if len(jd) > MAX_JD_CHARS:
         jd = jd[:MAX_JD_CHARS] + "\n...[truncated]"
 
-    tex = generate_resume(jd, base_resume_data)
+    # Strategy: patch mode (content deltas applied to the base template — fast,
+    # structurally bulletproof, built for Ollama) vs full-document generation.
+    tex: Optional[str] = None
+    strategy = config.RESUME_TAILOR_STRATEGY
+    if strategy == "auto":
+        strategy = "patch" if config.active_provider_name() == "ollama" else "full"
+    if strategy == "patch":
+        base_tex = _load_base_resume_latex()
+        if base_tex:
+            from backend.resume_tailor.patch_engine import tailor_via_patch
+            tex = tailor_via_patch(job, jd, base_tex)  # None -> fall back to full
+            if tex is None:
+                logger.warning("Patch-mode tailoring unavailable for job %s — using "
+                               "full-document generation.", job.id)
+        else:
+            logger.warning("RESUME_TAILOR_STRATEGY=patch needs config/base_resume.tex "
+                           "— using full-document generation.")
+    if tex is None:
+        tex = generate_resume(jd, base_resume_data)
     final_tex = tex
     pdf_bytes: Optional[bytes] = None
 

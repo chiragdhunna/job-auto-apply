@@ -83,6 +83,15 @@ except ValueError:
 #                running on a slow/unreliable local model.
 RESUME_MODE: str = (os.getenv("RESUME_MODE") or "auto").strip().lower()
 
+# HOW tailoring generates the document:
+#   patch -> the LLM returns only content deltas (summary/skills/top bullets)
+#            as small JSON; code applies them to base_resume.tex at its section
+#            anchors. 5-8x faster on Ollama and structurally bulletproof.
+#   full  -> the LLM writes the whole LaTeX document (the owner's rich prompt);
+#            best on Gemini-class models.
+#   auto  -> patch when the active provider is Ollama, full on Gemini (default).
+RESUME_TAILOR_STRATEGY: str = (os.getenv("RESUME_TAILOR_STRATEGY") or "auto").strip().lower()
+
 LINKEDIN_EMAIL: str = os.getenv("LINKEDIN_EMAIL", "")
 LINKEDIN_PASSWORD: str = os.getenv("LINKEDIN_PASSWORD", "")
 INDEED_EMAIL: str = os.getenv("INDEED_EMAIL", "")
