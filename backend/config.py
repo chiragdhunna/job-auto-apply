@@ -207,6 +207,20 @@ def source_defaults() -> Dict[str, bool]:
     return {**DEFAULT_SOURCE_TOGGLES, **{k: bool(v) for k, v in sources.items()}}
 
 
+def outreach_settings() -> Dict[str, Any]:
+    """Outreach draft generation settings (keywords.yaml `outreach` block).
+
+    DRAFT-ONLY by design: these settings control automatic DRAFT generation.
+    There is deliberately no send setting and none should be added.
+    """
+    block = load_keywords().get("outreach") or {}
+    return {
+        "enabled": bool(block.get("enabled", False)),
+        "generate_for_status": list(block.get("generate_for_status") or ["queued", "applied"]),
+        "max_per_cycle": int(block.get("max_per_cycle", 5) or 5),
+    }
+
+
 def active_provider_name() -> str:
     """Which provider will be used *by configuration* (static, not a live check).
 

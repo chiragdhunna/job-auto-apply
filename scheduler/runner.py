@@ -105,11 +105,49 @@ def run_pipeline_cycle(db=None) -> Dict[str, Any]:
         # 4) Score everything new — high scorers become ⭐ Recommended.
         _stage(summary, "score", lambda: score_new_jobs(db))
 
+        # 5) OPTIONAL: generate outreach DRAFTS for recommended/applied jobs.
+        #    Generation stopping at "draft ready in the dashboard" is the FINAL
+        #    automated step — nothing is ever sent by the system.
+        outreach_cfg = config.outreach_settings()
+        if outreach_cfg["enabled"]:
+            _stage(summary, "outreach_drafts", lambda: _generate_outreach_drafts(db, outreach_cfg))
+
         logger.info("=== Pipeline cycle summary === %s", _condense(summary))
     finally:
         if own_db:
             db.close()
     return summary
+
+
+def _generate_outreach_drafts(db, cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Draft outreach messages for jobs that don't have any yet. DRAFT-ONLY.
+
+    Caps LLM cost via max_per_cycle; stops the batch early on provider outage
+    (same pattern as scoring). Never sends anything.
+    """
+    from backend.llm.client import LLMError
+    from backend.routers.outreach import generate_outreach_for_job
+
+    statuses = cfg.get("generate_for_status") or ["queued", "applied"]
+    cap = int(cfg.get("max_per_cycle", 5))
+    jobs = crud.list_jobs(db, statuses=statuses, limit=500)
+    result = {"generated": 0, "skipped_existing": 0}
+    for job in jobs:
+        if result["generated"] >= cap:
+            break
+        if crud.list_outreach_drafts(db, job.id):
+            result["skipped_existing"] += 1
+            continue
+        try:
+            generate_outreach_for_job(db, job)
+            result["generated"] += 1
+        except LLMError as exc:
+            logger.error("LLM unavailable while drafting outreach (%s) — stopping this batch.", exc)
+            result["llm_error"] = str(exc)
+            break
+        except Exception:  # noqa: BLE001 — one bad job must not kill the stage
+            logger.exception("Outreach drafting failed for job %s", job.id)
+    return result
 
 
 def _condense(summary: Dict[str, Any]) -> Dict[str, Any]:

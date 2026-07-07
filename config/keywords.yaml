@@ -43,6 +43,16 @@ sources:
 # How often the scheduler runs the full pipeline (minutes).
 run_interval_minutes: 60
 
+# Recruiter/hiring-manager outreach DRAFTS (never sent automatically — you
+# review, copy, and send every message yourself from the Outreach page).
+# Shipped disabled because each job costs 2 LLM calls (minutes each on Ollama);
+# flip to true once you're on Gemini or want drafts generated on schedule.
+# You can always generate per-job on demand from the dashboard regardless.
+outreach:
+  enabled: false
+  generate_for_status: ["queued", "applied"]   # which job statuses get drafts
+  max_per_cycle: 5                              # cap LLM cost per scheduler run
+
 # Companies to pull open roles from via their public ATS APIs.
 # These are EXAMPLES — replace with the companies you actually want to target.
 #   greenhouse/lever/ashby: the company's board slug (the {company} in the API URL)
