@@ -1,28 +1,23 @@
 # job-auto-apply
 
-A fully automated, **local-first** job application system. It discovers roles, scores
-them against your resume with an LLM, generates a JD-tailored resume + application
-answers, and (optionally) submits applications for you — all controllable from a
-Streamlit dashboard and driven on a schedule.
+A **local-first job discovery & recommendation engine**. It finds openings across
+the web, scores every one against *your* resume with an LLM, ranks the best
+matches first, and hands you a JD-tailored resume PDF on one click — **you** do
+the actual applying, it does everything else and tracks what you've applied to.
 
-Everything runs on your own machine. Your credentials, browser session, and data
-never leave it.
+Everything runs on your own machine. Your data never leaves it.
 
 ```
-                ┌──────────────┐
-   ATS APIs ───▶│   Scrapers   │────┐
- LinkedIn/Indeed│ (Greenhouse, │    │
-   (browser)    │ Lever, Ashby)│    ▼
-                └──────────────┘  ┌─────────┐   ┌──────────────┐   ┌───────────────┐
-                                  │  Jobs   │──▶│ LLM Scoring  │──▶│  Resume +     │
-                                  │ (SQLite)│   │ (fit 0-100)  │   │  Answers gen  │
-                                  └─────────┘   └──────────────┘   └───────┬───────┘
-                                       ▲                                    │
-                                       │                                    ▼
-   ┌───────────┐   ┌───────────┐   ┌───┴────────┐              ┌────────────────────┐
-   │ Streamlit │──▶│  FastAPI  │──▶│ APScheduler│─────────────▶│  Browser automation │
-   │ dashboard │   │  backend  │   │   loop     │   auto-submit│ (Playwright, stealth)│
-   └───────────┘   └───────────┘   └────────────┘              └────────────────────┘
+  ATS APIs (Greenhouse/Lever/Ashby)──┐
+  Web boards (Remotive, RemoteOK,    │    ┌─────────┐   ┌──────────────┐
+  Arbeitnow, The Muse, Adzuna) ──────┼───▶│  Jobs   │──▶│ LLM Scoring  │
+  LinkedIn / Indeed (browser,        │    │ (SQLite)│   │ (fit 0-100)  │
+  discovery only) ───────────────────┘    └─────────┘   └──────┬───────┘
+                                                               ▼
+   ┌───────────────────────────  ⭐ Recommended (dashboard)  ──────────────┐
+   │  best-fit jobs first · link to the posting · one-click tailored      │
+   │  resume PDF · “Mark applied” tracking · you click Apply yourself     │
+   └──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -47,23 +42,25 @@ never leave it.
 
 ## Features
 
-- **Multi-source discovery** — Greenhouse, Lever and Ashby via their public JSON
-  APIs (lowest detection risk), plus browser-driven LinkedIn and Indeed.
-- **LLM fit scoring** — every role is scored 0–100 against your resume with
-  reasoning, matched skills, and gaps. Only jobs above your threshold get queued.
-- **JD-tailored resumes** — generates LaTeX tailored to each posting and compiles
-  it to PDF (via `tectonic`/`pdflatex`). Bring your own tailoring prompt.
-- **Grounded application answers** — answers common (and form-specific) questions
-  using only facts from your resume data.
-- **Automated submission** — fills and submits Greenhouse/Lever forms, LinkedIn
-  Easy Apply, and Indeed Apply with human-like typing, randomised delays, and
-  per-run caps.
+- **Web-wide discovery** — Greenhouse/Lever/Ashby public APIs, plus Remotive,
+  RemoteOK, Arbeitnow (with a visa-sponsorship flag), The Muse, and optional
+  Adzuna (strong UK/India coverage). LinkedIn/Indeed discovery via your own
+  logged-in browser session — discovery only, nothing is submitted.
+- **LLM fit scoring** — every role scored 0–100 against your resume with
+  reasoning, matched skills, and gaps. High scorers become ⭐ **Recommended**.
+- **Recommended-first dashboard** — best-fit jobs at the top, direct link to
+  every posting, filter by score/source/status, search titles and companies.
+- **One-click tailored resume** — generates LaTeX tailored to the JD and hands
+  you the compiled PDF (with validate/repair passes and a guaranteed fallback
+  to your base resume). Bring your own tailoring prompt.
+- **Applied tracking** — tick "Mark applied" when you've submitted; the Applied
+  page keeps your history. Undo supported.
+- **Grounded application answers** — generate answers to common questions from
+  your real resume data, ready to paste into forms.
 - **Provider-agnostic LLM** — Google Gemini primary with automatic fallback to a
   local **Ollama** model; run 100% offline if you prefer.
-- **Dashboard control** — review the queue, approve/skip jobs, edit thresholds and
-  platform toggles, browse applications, and download tailored resumes.
-- **Scheduled** — an in-process APScheduler loop runs the whole pipeline on your
-  interval, respecting the toggles/threshold you set in the dashboard.
+- **Scheduled** — an in-process APScheduler loop discovers + scores on your
+  interval, so the Recommended list is always fresh.
 
 ## Tech stack
 
@@ -83,7 +80,7 @@ cd job-auto-apply
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 3. Install the Playwright browser (for LinkedIn/Indeed automation)
+# 3. (Optional) Playwright browser — only needed for LinkedIn/Indeed discovery
 python -m playwright install chromium
 
 # 4. Configure
@@ -263,14 +260,16 @@ container runs.
 
 ## The dashboard
 
-- **Home** — pipeline stats, active LLM provider, and one-click *Scrape* / *Score*.
-- **Live Queue** — new/scored/queued jobs with fit scores and reasoning; per-job
-  **Approve / Skip / Score / Resume / Answers** actions.
-- **Applied** — history of submitted/attempted applications, filterable by
-  platform, status, and date.
-- **Settings** — edit score threshold, platform toggles, and run interval; see the
-  live LLM/Ollama status; trigger manual scrape/score.
-- **Resume Versions** — generate, view (LaTeX), and download tailored resumes per job.
+- **Home** — pipeline stats, active LLM provider, one-click *Discover* / *Score*.
+- **⭐ Recommended** — the main page: best-fit jobs first with score, reasoning,
+  matched skills & gaps; link to the posting; **Tailored resume** (LLM) and
+  **Quick resume** (instant base PDF) with download; **Mark applied** / Undo /
+  Skip.
+- **Applied** — everything you've marked as applied, filterable by platform,
+  status, and date.
+- **Settings** — score threshold, discovery-source toggles, run interval; live
+  LLM/Ollama status.
+- **Resume Versions** — view (LaTeX) and download every generated resume per job.
 
 The dashboard talks to the backend over HTTP, so it controls exactly the same API
 the scheduler uses.
@@ -279,26 +278,26 @@ the scheduler uses.
 
 ## How the pipeline works
 
-Each scheduler cycle (every `run_interval_minutes`) runs, respecting your toggles
-and threshold:
+Each scheduler cycle (every `run_interval_minutes`) runs, respecting your
+source toggles:
 
-1. **Scrape** the enabled ATS boards → new `jobs` (deduped).
-2. **Score** every `new` job with the LLM → `fit_score` + reasoning; jobs ≥ the
-   threshold become `queued`.
-3. **Apply**:
-   - **Greenhouse/Lever** — fill the public form, upload the tailored resume,
-     answer questions, submit.
-   - **LinkedIn / Indeed** — search (Easy-Apply/Indeed-Apply filtered), read + score
-     each posting in-session, then run the multi-step apply flow for queued jobs.
-   Resume tailoring + answer generation happen just before each submission.
+1. **Scrape** the enabled ATS boards (Greenhouse/Lever/Ashby) → new `jobs`.
+2. **Scrape web boards** — Remotive, RemoteOK, Arbeitnow, The Muse (+ Adzuna
+   with keys). All deduped against what's already known.
+3. **Discover on LinkedIn / Indeed** (if toggled and logged in) — browser
+   search + read, store only. Nothing is submitted.
+4. **Score** every `new` job with the LLM → `fit_score`, reasoning, matched
+   skills, gaps. Jobs at/above your threshold are flagged ⭐ **Recommended**.
 
-Every cycle logs a summary (found / scored / queued / submitted / failed) to the
-console and `logs/scheduler.log`; every browser action is logged to
-`logs/automation.log`.
+Then it's your turn, on the **⭐ Recommended** page: open the posting, click
+**Tailored resume** (LLM, tailored to that JD) or **Quick resume** (instant,
+your base resume), apply on the company's site, and hit **Mark applied**.
 
-Job statuses: `new → scored → queued → applied` (or `skipped` / `failed` /
-`needs_review`). Anything the automation can't complete confidently is left as
-`needs_review` for you.
+Every cycle logs a summary (found / new / scored / recommended) to the console
+and `logs/scheduler.log`.
+
+Job statuses: `new → scored → (⭐ recommended)` then `applied` (marked by you)
+or `skipped`.
 
 ---
 
@@ -316,27 +315,26 @@ SQLite (via SQLAlchemy):
 
 ---
 
-## Responsible use & anti-detection
+## Responsible use
 
-This tool automates **your** job search on **your** accounts. Please use it
-responsibly:
+This tool researches **your** job search on **your** accounts:
 
-- **Terms of Service.** Automating LinkedIn and Indeed may violate their Terms and
-  can lead to restrictions or bans on your account. You accept that risk. The ATS
-  public APIs (Greenhouse/Lever/Ashby) are the safest, lowest-risk path — prefer
-  them. Consider keeping LinkedIn/Indeed toggles off unless you understand the risk.
-- **Start in dry-run.** Set `AUTOMATION_DRY_RUN=true` to fill forms without
-  submitting, verify the results in the dashboard, then switch it off.
-- **Keep caps low.** `MAX_APPLICATIONS_PER_RUN` defaults to 10; go lower while you
-  build trust in the flow. Review `needs_review` items rather than blindly trusting.
+- The primary discovery paths (ATS + web board public APIs) are ordinary API
+  reads — the lowest-risk way to gather postings.
+- LinkedIn/Indeed **discovery** uses your own logged-in browser session with
+  human-like pacing. It only reads postings; still, automating those sites can
+  conflict with their Terms — keep the toggles off if that concerns you.
 - **Never commit secrets.** `.env`, `data/`, `logs/`, and the browser profile are
   git-ignored — the profile holds your live session cookies.
 
-Built-in anti-detection measures: non-headless persistent browser context (real
-profile), randomised delays between every action, character-by-character typing
-with jitter, mouse movement before clicks, `navigator.webdriver` masking, and
-per-run application caps. Selectors for LinkedIn/Indeed/ATS DOMs change often —
-`logs/automation.log` is your friend when a flow breaks.
+### Legacy auto-apply modules
+
+The original auto-submission code (`automation/ats_apply.py`, plus the Easy
+Apply / Indeed Apply flows) still lives in the repo but is **no longer wired
+into the scheduler** — the pipeline never submits anything. If you ever want to
+experiment with it manually, the stealth measures (persistent non-headless
+profile, randomised delays, per-run caps, `AUTOMATION_DRY_RUN`) all still apply,
+as do the ToS risks.
 
 ---
 
