@@ -1,4 +1,5 @@
-"""Applied — history of submitted / attempted applications."""
+"""Applied — the applications you've marked as submitted (plus any legacy
+auto-submission attempts)."""
 
 from __future__ import annotations
 
@@ -17,8 +18,8 @@ except api.APIError as exc:
     st.stop()
 
 if not apps:
-    st.info("No applications yet. Once the automation modules submit applications, "
-            "they'll appear here.")
+    st.info("No applications tracked yet. Apply to a job from the **⭐ Recommended** "
+            "page and hit **Mark applied** — it'll show up here.")
     st.stop()
 
 df = pd.DataFrame(apps)

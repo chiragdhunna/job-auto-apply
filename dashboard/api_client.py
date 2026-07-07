@@ -78,6 +78,28 @@ def scrape_now() -> Dict[str, Any]:
     return _req("POST", "/jobs/scrape")
 
 
+def get_recommended(
+    min_score: Optional[float] = None,
+    include_done: bool = False,
+    source: Optional[str] = None,
+    limit: int = 200,
+) -> List[Dict[str, Any]]:
+    params: Dict[str, Any] = {"include_done": include_done, "limit": limit}
+    if min_score is not None:
+        params["min_score"] = min_score
+    if source:
+        params["source"] = source
+    return _req("GET", "/jobs/recommended", params=params)
+
+
+def mark_applied(job_id: int, note: Optional[str] = None) -> Dict[str, Any]:
+    return _req("POST", f"/jobs/{job_id}/mark-applied", json={"note": note} if note else {})
+
+
+def unmark_applied(job_id: int) -> Dict[str, Any]:
+    return _req("POST", f"/jobs/{job_id}/unmark-applied")
+
+
 def score_new() -> Dict[str, Any]:
     return _req("POST", "/jobs/score")
 
@@ -86,8 +108,8 @@ def score_job(job_id: int) -> Dict[str, Any]:
     return _req("POST", f"/jobs/{job_id}/score")
 
 
-def tailor_resume(job_id: int) -> Dict[str, Any]:
-    return _req("POST", f"/jobs/{job_id}/resume")
+def tailor_resume(job_id: int, force_tailor: bool = False) -> Dict[str, Any]:
+    return _req("POST", f"/jobs/{job_id}/resume", params={"force_tailor": force_tailor})
 
 
 def list_job_resumes(job_id: int) -> List[Dict[str, Any]]:

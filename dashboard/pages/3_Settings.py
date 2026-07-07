@@ -42,14 +42,14 @@ st.divider()
 st.subheader("Pipeline settings")
 with st.form("settings_form"):
     threshold = st.slider(
-        "Score threshold (auto-queue at or above)",
+        "Score threshold (⭐ recommended at or above)",
         min_value=0, max_value=100, value=int(settings.get("score_threshold", 70)),
     )
     interval = st.number_input(
         "Scheduler run interval (minutes)",
         min_value=1, value=int(settings.get("run_interval_minutes", 60)),
     )
-    st.markdown("**Platform toggles**")
+    st.markdown("**Discovery sources** (which places jobs are pulled from)")
     toggles = dict(settings.get("platform_toggles", {}))
     new_toggles = {}
     cols = st.columns(len(toggles) or 1)

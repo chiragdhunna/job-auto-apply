@@ -15,7 +15,8 @@ import api_client as api
 st.set_page_config(page_title="job-auto-apply", page_icon="🎯", layout="wide")
 
 st.title("🎯 job-auto-apply")
-st.caption("Local, automated job discovery → scoring → tailoring → application.")
+st.caption("Automated job discovery → fit scoring → tailored resumes → recommendations. "
+           "You click apply; it does everything else.")
 
 # --- Backend health -------------------------------------------------------- #
 try:
@@ -33,10 +34,11 @@ if backend_ok:
         try:
             jobs = api.list_jobs(limit=1000)
             counts = Counter(j["status"] for j in jobs)
-            order = ["new", "scored", "queued", "applied", "failed", "skipped", "needs_review"]
+            order = ["new", "scored", "queued", "applied", "skipped", "needs_review"]
+            labels = {"queued": "⭐ Recommended", "applied": "✅ Applied (by you)"}
             metric_cols = st.columns(len(order))
             for c, status in zip(metric_cols, order):
-                c.metric(status.replace("_", " ").title(), counts.get(status, 0))
+                c.metric(labels.get(status, status.replace("_", " ").title()), counts.get(status, 0))
             st.metric("Total jobs discovered", len(jobs))
         except api.APIError as exc:
             st.warning(f"Could not load jobs: {exc}")
@@ -64,8 +66,9 @@ if backend_ok:
     st.subheader("Run the pipeline")
     b1, b2, _ = st.columns([1, 1, 3])
     with b1:
-        if st.button("🔎 Scrape ATS boards now", use_container_width=True):
-            with st.spinner("Scraping configured ATS boards…"):
+        if st.button("🔎 Discover jobs now", use_container_width=True,
+                     help="ATS boards + web-wide job APIs"):
+            with st.spinner("Scraping ATS boards + web job boards…"):
                 try:
                     st.success(f"Scrape complete: {api.scrape_now()['summary']}")
                 except api.APIError as exc:
@@ -78,5 +81,6 @@ if backend_ok:
                 except api.APIError as exc:
                     st.error(str(exc))
 
-    st.info("Use the pages in the sidebar: **Live Queue**, **Applied**, "
-            "**Settings**, and **Resume Versions**.")
+    st.info("Head to **⭐ Recommended** in the sidebar for the ranked list — open a "
+            "posting, grab your tailored resume, apply, tick it off. **Applied** tracks "
+            "your history; **Resume Versions** keeps every generated PDF.")
