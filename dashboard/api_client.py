@@ -146,3 +146,35 @@ def generate_answers(job_id: int, questions: Optional[List[str]] = None) -> Dict
 # -- applications ----------------------------------------------------------- #
 def list_applications() -> List[Dict[str, Any]]:
     return _req("GET", "/applications")
+
+
+# -- outreach (DRAFT-ONLY: nothing here sends anything) ---------------------- #
+def outreach_overview() -> List[Dict[str, Any]]:
+    return _req("GET", "/outreach")
+
+
+def get_outreach(job_id: int) -> Dict[str, Any]:
+    return _req("GET", f"/outreach/{job_id}")
+
+
+def regenerate_outreach(job_id: int) -> Dict[str, Any]:
+    return _req("POST", f"/outreach/{job_id}/regenerate")
+
+
+def save_outreach_draft(job_id: int, draft_id: int, draft_text: str, subject: Optional[str] = None) -> Dict[str, Any]:
+    body: Dict[str, Any] = {"draft_text": draft_text}
+    if subject is not None:
+        body["subject"] = subject
+    return _req("PUT", f"/outreach/{job_id}/draft/{draft_id}", json=body)
+
+
+def mark_draft_sent(job_id: int, draft_id: int) -> Dict[str, Any]:
+    return _req("PUT", f"/outreach/{job_id}/draft/{draft_id}/mark-sent")
+
+
+def skip_draft(job_id: int, draft_id: int) -> Dict[str, Any]:
+    return _req("PUT", f"/outreach/{job_id}/draft/{draft_id}/skip")
+
+
+def set_outreach_contact(job_id: int, **fields) -> Dict[str, Any]:
+    return _req("PUT", f"/outreach/{job_id}/contact", json=fields)
