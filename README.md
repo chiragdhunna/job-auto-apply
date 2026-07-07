@@ -1,4 +1,4 @@
-# job-auto-apply
+# jobctl
 
 A **local-first job discovery & recommendation engine**. It finds openings across
 the web, scores every one against *your* resume with an LLM, ranks the best
@@ -73,8 +73,8 @@ APScheduler · Google Gemini / Ollama · LaTeX (tectonic or pdflatex).
 
 ```bash
 # 1. Clone + enter
-git clone https://github.com/chiragdhunna/job-auto-apply.git
-cd job-auto-apply
+git clone https://github.com/chiragdhunna/jobctl.git
+cd jobctl
 
 # 2. Create a virtualenv and install deps
 python3 -m venv .venv && source .venv/bin/activate

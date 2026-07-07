@@ -33,7 +33,7 @@ from backend.scoring.gemini_scorer import score_new_jobs
 from backend.scrapers.ats_boards_scraper import run_ats_scrape
 from backend.scrapers.web_boards_scraper import run_web_scrape
 
-logger = logging.getLogger("job_auto_apply.scheduler")
+logger = logging.getLogger("jobctl.scheduler")
 
 JOB_ID = "pipeline"
 _scheduler = None  # set when the loop starts, used for live rescheduling
@@ -46,7 +46,7 @@ def _setup_logging() -> None:
     log_dir = Path(config.BASE_DIR) / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / "scheduler.log"
-    root = logging.getLogger("job_auto_apply")
+    root = logging.getLogger("jobctl")
     root.setLevel(logging.INFO)
     if not any(isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
                for h in root.handlers):

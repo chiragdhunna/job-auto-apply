@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 
 from backend.db import crud
 
-logger = logging.getLogger("job_auto_apply.scrapers")
+logger = logging.getLogger("jobctl.scrapers")
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _MULTINEWLINE_RE = re.compile(r"\n\s*\n\s*\n+")

@@ -40,7 +40,7 @@ from backend.db.models import Job, ResumeVersion
 from backend.llm.client import generate
 from backend.resume_tailor.prompts import build_repair_prompt, build_tailoring_prompt
 
-logger = logging.getLogger("job_auto_apply.resume")
+logger = logging.getLogger("jobctl.resume")
 
 RESUME_DIR = Path(config.BASE_DIR) / "data" / "resumes"
 BASE_RESUME_TEX_PATH = Path(config.BASE_DIR) / "config" / "base_resume.tex"

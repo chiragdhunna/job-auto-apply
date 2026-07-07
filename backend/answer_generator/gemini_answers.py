@@ -17,7 +17,7 @@ from backend import config
 from backend.db.models import Job
 from backend.llm.client import generate
 
-logger = logging.getLogger("job_auto_apply.answers")
+logger = logging.getLogger("jobctl.answers")
 
 MAX_JD_CHARS = 4000
 DEFAULT_MAX_WORDS = 150

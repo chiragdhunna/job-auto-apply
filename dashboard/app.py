@@ -1,4 +1,4 @@
-"""job-auto-apply dashboard — home / command center.
+"""jobctl dashboard — home / command center.
 
 Run with:  streamlit run dashboard/app.py
 (The backend must be running; set BACKEND_URL if it isn't on localhost:8000.)
@@ -13,7 +13,7 @@ import streamlit as st
 import api_client as api
 from theme import inject_theme, page_header
 
-st.set_page_config(page_title="job-auto-apply", page_icon="▮", layout="wide")
+st.set_page_config(page_title="jobctl", page_icon="▮", layout="wide")
 inject_theme()
 
 page_header(

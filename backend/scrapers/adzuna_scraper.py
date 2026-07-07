@@ -28,7 +28,7 @@ class AdzunaScraper(WebScraper):
         return ccs or ["gb"]
 
     def scrape(self) -> List[ScrapedJob]:
-        logger = logging.getLogger("job_auto_apply.scrapers.web")
+        logger = logging.getLogger("jobctl.scrapers.web")
         if not (config.ADZUNA_APP_ID and config.ADZUNA_APP_KEY):
             logger.info("[adzuna] skipped — ADZUNA_APP_ID/KEY not set")
             return []

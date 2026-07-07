@@ -22,7 +22,7 @@ from backend import config
 from backend.llm.gemini_provider import GeminiError, GeminiProvider
 from backend.llm.ollama_provider import OllamaError, OllamaProvider
 
-logger = logging.getLogger("job_auto_apply.llm")
+logger = logging.getLogger("jobctl.llm")
 
 _PROVIDER_ERRORS = (GeminiError, OllamaError)
 

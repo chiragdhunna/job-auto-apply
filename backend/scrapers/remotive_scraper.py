@@ -8,7 +8,7 @@ from typing import List
 from backend.scrapers.base import ScrapedJob, role_keywords, strip_html
 from backend.scrapers.web_common import WebScraper, get_json, location_ok, looks_relevant
 
-logger = logging.getLogger("job_auto_apply.scrapers.web")
+logger = logging.getLogger("jobctl.scrapers.web")
 
 
 class RemotiveScraper(WebScraper):

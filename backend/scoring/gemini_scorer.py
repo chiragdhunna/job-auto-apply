@@ -24,7 +24,7 @@ from backend.db import crud
 from backend.db.models import Job, JobStatus
 from backend.llm.client import LLMError, generate
 
-logger = logging.getLogger("job_auto_apply.scoring")
+logger = logging.getLogger("jobctl.scoring")
 
 MAX_JD_CHARS = 6000  # keep prompts bounded (local models especially)
 

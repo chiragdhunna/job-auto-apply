@@ -12,7 +12,7 @@ from typing import List, Optional
 from backend.scrapers.base import ScrapedJob, strip_html
 from backend.scrapers.web_common import WebScraper, get_json, location_ok, looks_relevant
 
-logger = logging.getLogger("job_auto_apply.scrapers.web")
+logger = logging.getLogger("jobctl.scrapers.web")
 
 
 class ArbeitnowScraper(WebScraper):

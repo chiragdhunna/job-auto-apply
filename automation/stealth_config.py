@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional
 
 from backend import config
 
-logger = logging.getLogger("job_auto_apply.automation")
+logger = logging.getLogger("jobctl.automation")
 
 DEFAULT_VIEWPORT = {"width": 1366, "height": 850}
 
@@ -54,7 +54,7 @@ def setup_automation_logging() -> None:
     log_dir = Path(config.BASE_DIR) / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / "automation.log"
-    root = logging.getLogger("job_auto_apply")
+    root = logging.getLogger("jobctl")
     if not any(getattr(h, "_ja_file", None) == str(log_path) for h in root.handlers):
         handler = logging.FileHandler(log_path)
         handler.setFormatter(

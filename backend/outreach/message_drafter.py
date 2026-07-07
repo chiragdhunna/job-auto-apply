@@ -23,7 +23,7 @@ from backend import config
 from backend.llm.client import LLMError, generate
 from backend.outreach.prompts import build_outreach_prompt
 
-logger = logging.getLogger("job_auto_apply.outreach.drafts")
+logger = logging.getLogger("jobctl.outreach.drafts")
 
 MAX_JD_CHARS = 5000
 LINKEDIN_HARD_CAP = 1000  # InMail-style ceiling; prompt aims much shorter

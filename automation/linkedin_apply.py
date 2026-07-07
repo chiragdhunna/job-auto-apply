@@ -45,7 +45,7 @@ from backend.llm.client import LLMError
 from backend.resume_tailor.latex_engine import tailor_and_store
 from backend.scoring.gemini_scorer import score_and_store
 
-logger = logging.getLogger("job_auto_apply.automation.linkedin")
+logger = logging.getLogger("jobctl.automation.linkedin")
 
 FEED_URL = "https://www.linkedin.com/feed/"
 JOBS_SEARCH = "https://www.linkedin.com/jobs/search/?keywords={kw}&location={loc}&f_AL=true"

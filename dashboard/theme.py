@@ -1,4 +1,4 @@
-"""Design system for the job-auto-apply dashboard — TERMINAL / AMBER.
+"""Design system for the jobctl dashboard — TERMINAL / AMBER.
 
 ═══════════════════════════════════════════════════════════════════════════════
 DESIGN TOKENS (single source of truth — every page imports from here)
@@ -212,7 +212,7 @@ def provider_badge() -> str:
 def page_header(title: str, cmd: str = "", subtitle: str = "") -> None:
     """Terminal-style header: app bar + $ command line + optional subtitle."""
     st.markdown(
-        f'<div class="ja-topbar"><span>job-auto-apply</span>{provider_badge()}</div>',
+        f'<div class="ja-topbar"><span>jobctl</span>{provider_badge()}</div>',
         unsafe_allow_html=True,
     )
     st.markdown(f"# {title}")

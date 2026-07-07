@@ -13,7 +13,7 @@ import streamlit as st
 import api_client as api
 from theme import inject_theme, page_header
 
-st.set_page_config(page_title="Outreach · job-auto-apply", page_icon="✉️", layout="wide")
+st.set_page_config(page_title="Outreach · jobctl", page_icon="✉️", layout="wide")
 inject_theme()
 
 page_header(

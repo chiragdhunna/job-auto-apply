@@ -14,7 +14,7 @@ from typing import List, Sequence
 from backend.db.models import JobSource
 from backend.scrapers.base import BaseScraper, ScrapedJob
 
-logger = logging.getLogger("job_auto_apply.scrapers.indeed")
+logger = logging.getLogger("jobctl.scrapers.indeed")
 
 
 class IndeedScraper(BaseScraper):

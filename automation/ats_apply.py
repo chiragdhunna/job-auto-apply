@@ -39,7 +39,7 @@ from backend.db.models import ApplicationStatus, Job, JobSource, JobStatus
 from backend.llm.client import LLMError
 from backend.resume_tailor.latex_engine import tailor_and_store
 
-logger = logging.getLogger("job_auto_apply.automation.ats")
+logger = logging.getLogger("jobctl.automation.ats")
 
 # Selector fallback lists (ordered by preference).
 GH_SELECTORS = {

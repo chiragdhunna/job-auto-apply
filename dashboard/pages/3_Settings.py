@@ -7,7 +7,7 @@ import streamlit as st
 import api_client as api
 from theme import config_comment, inject_theme, page_header
 
-st.set_page_config(page_title="Settings · job-auto-apply", page_icon="⚙️", layout="wide")
+st.set_page_config(page_title="Settings · jobctl", page_icon="⚙️", layout="wide")
 inject_theme()
 
 page_header("settings", cmd="cat keywords.yaml --editable",

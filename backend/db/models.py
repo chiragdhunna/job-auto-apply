@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM models for job-auto-apply.
+"""SQLAlchemy ORM models for jobctl.
 
 Schema (SQLite):
   jobs             - discovered job postings + fit score + pipeline status

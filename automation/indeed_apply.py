@@ -46,7 +46,7 @@ from backend.llm.client import LLMError
 from backend.resume_tailor.latex_engine import tailor_and_store
 from backend.scoring.gemini_scorer import score_and_store
 
-logger = logging.getLogger("job_auto_apply.automation.indeed")
+logger = logging.getLogger("jobctl.automation.indeed")
 
 INDEED_DOMAIN = (os.getenv("INDEED_DOMAIN") or "https://www.indeed.com").rstrip("/")
 SEARCH_URL = INDEED_DOMAIN + "/jobs?q={kw}&l={loc}"

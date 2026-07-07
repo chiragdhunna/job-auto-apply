@@ -31,7 +31,7 @@ from backend.scrapers.web_common import (  # noqa: F401 (re-exported for compat)
     looks_relevant,
 )
 
-logger = logging.getLogger("job_auto_apply.scrapers.web")
+logger = logging.getLogger("jobctl.scrapers.web")
 
 # Order = display order in summaries. Each class carries its own `source` name.
 WEB_SCRAPER_CLASSES = [

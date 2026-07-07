@@ -17,7 +17,7 @@ import requests
 
 from backend import config
 
-logger = logging.getLogger("job_auto_apply.llm.ollama")
+logger = logging.getLogger("jobctl.llm.ollama")
 
 
 class OllamaError(RuntimeError):

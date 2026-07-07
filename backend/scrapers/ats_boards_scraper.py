@@ -28,10 +28,10 @@ from backend.scrapers.base import (
     title_matches_roles,
 )
 
-logger = logging.getLogger("job_auto_apply.scrapers.ats")
+logger = logging.getLogger("jobctl.scrapers.ats")
 
 DEFAULT_TIMEOUT = 20
-HEADERS = {"User-Agent": "job-auto-apply/0.1 (personal job search; +local)"}
+HEADERS = {"User-Agent": "jobctl/0.1 (personal job search; +local)"}
 
 
 def _slug_to_name(slug: str) -> str:

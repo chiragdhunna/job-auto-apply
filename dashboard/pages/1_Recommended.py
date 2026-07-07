@@ -13,7 +13,7 @@ import streamlit as st
 import api_client as api
 from theme import inject_theme, page_header, render_fit_score_bar, status_pill
 
-st.set_page_config(page_title="Recommended · job-auto-apply", page_icon="▮", layout="wide")
+st.set_page_config(page_title="Recommended · jobctl", page_icon="▮", layout="wide")
 inject_theme()
 
 page_header(
@@ -74,7 +74,6 @@ if not jobs:
         "pulls fresh postings, **Score new jobs** ranks them. Anything at or "
         "above your threshold lands here. (Filtered everything out? Lower the "
         "minimum-score slider.)",
-        icon="▮",
     )
     st.stop()
 

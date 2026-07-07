@@ -15,10 +15,10 @@ import requests
 
 from backend.scrapers.base import BaseScraper, title_matches_roles
 
-logger = logging.getLogger("job_auto_apply.scrapers.web")
+logger = logging.getLogger("jobctl.scrapers.web")
 
 TIMEOUT = 25
-HEADERS = {"User-Agent": "Mozilla/5.0 (job-auto-apply; personal job search)"}
+HEADERS = {"User-Agent": "Mozilla/5.0 (jobctl; personal job search)"}
 
 # Location text that always passes when "Remote" is among the targets.
 _REMOTE_WORDS = ("remote", "worldwide", "anywhere", "flexible", "global")

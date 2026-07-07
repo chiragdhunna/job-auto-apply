@@ -35,7 +35,7 @@ import requests
 
 from backend.llm.client import LLMError, generate
 
-logger = logging.getLogger("job_auto_apply.outreach.contacts")
+logger = logging.getLogger("jobctl.outreach.contacts")
 
 MAX_TEXT_CHARS = 6000
 
@@ -137,7 +137,7 @@ def _fetch_page_text(url: str) -> str:
     if not url or not url.startswith("http"):
         return ""
     try:
-        resp = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0 (job-auto-apply)"})
+        resp = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0 (jobctl)"})
         if resp.status_code != 200:
             return ""
         from backend.scrapers.base import strip_html

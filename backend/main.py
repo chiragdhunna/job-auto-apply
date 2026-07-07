@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="job-auto-apply",
+    title="jobctl",
     version="0.1.0",
     description="Local, fully-automated job application system.",
     lifespan=lifespan,

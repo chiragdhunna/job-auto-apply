@@ -12,7 +12,7 @@ from typing import List
 from backend.scrapers.base import ScrapedJob, strip_html, title_matches_roles
 from backend.scrapers.web_common import ROLE_WORDS, WebScraper, get_json, location_ok
 
-logger = logging.getLogger("job_auto_apply.scrapers.web")
+logger = logging.getLogger("jobctl.scrapers.web")
 
 
 class TheMuseScraper(WebScraper):

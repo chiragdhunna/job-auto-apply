@@ -18,7 +18,7 @@ from theme import (
     status_pill,
 )
 
-st.set_page_config(page_title="Applied · job-auto-apply", page_icon="▮", layout="wide")
+st.set_page_config(page_title="Applied · jobctl", page_icon="▮", layout="wide")
 inject_theme()
 
 page_header("applied", cmd="history --applied --by=date",
@@ -35,7 +35,6 @@ if not apps:
         "Nothing applied yet. On the **recommended** page: open a posting, send "
         "your application, then hit **✓ I applied** — it lands here with its "
         "full pipeline trail.",
-        icon="▮",
     )
     st.stop()
 

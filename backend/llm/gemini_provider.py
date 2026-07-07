@@ -12,7 +12,7 @@ from typing import Optional
 
 from backend import config
 
-logger = logging.getLogger("job_auto_apply.llm.gemini")
+logger = logging.getLogger("jobctl.llm.gemini")
 
 
 class GeminiError(RuntimeError):

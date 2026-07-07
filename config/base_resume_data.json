@@ -98,7 +98,7 @@
       "link": "https://github.com/chiragdhunna/REPLACE-repo-name"
     },
     {
-      "name": "job-auto-apply",
+      "name": "jobctl",
       "tech": [
         "Python",
         "FastAPI",
@@ -109,7 +109,7 @@
         "APScheduler"
       ],
       "description": "Automated job discovery, JD-fit scoring, resume tailoring, and application submission system targeting UK roles with visa sponsorship.",
-      "link": "https://github.com/chiragdhunna/job-auto-apply"
+      "link": "https://github.com/chiragdhunna/jobctl"
     },
     {
       "name": "Montra",
