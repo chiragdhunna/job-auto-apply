@@ -1,31 +1,42 @@
-"""Design system for the job-auto-apply dashboard.
+"""Design system for the job-auto-apply dashboard — TERMINAL / AMBER.
 
 ═══════════════════════════════════════════════════════════════════════════════
-DESIGN TOKENS  (edit here; every page imports from this module for consistency)
+DESIGN TOKENS (single source of truth — every page imports from here)
 ═══════════════════════════════════════════════════════════════════════════════
 
-WHY THIS LOOK (not a generic dashboard template):
-  This is a daily triage tool for ONE developer deciding which jobs are worth
-  applying to. Its single job: let the fit score be trusted at a glance. So the
-  score — not chrome — is the hero, and colour is spent on *meaning*.
+WHY THIS LOOK: this dashboard belongs to one developer whose personal brand
+(portfolio, project branding) is a dark terminal aesthetic with amber/gold
+accents. The dashboard should feel like it sits NEXT TO his other work — a
+lived-in, slightly warm terminal — not a generic admin panel. Deliberately NOT:
+pure-black hacker neon, cream-serif-terracotta, or corporate SaaS chrome.
 
-  · Canvas — a deep "control-room" navy (#0E1621), chosen deliberately (not the
-    reflexive black+neon): the darkness exists so the semantic SCORE GRADIENT
-    reads with maximum contrast. It is a focus surface, checked daily.
-  · Score gradient — green → lime → amber → clay encodes fit strength as a real
-    progression (95 ≠ 70). This is the palette's heart and the app's signature.
-  · Action blue (#4C9DF7) is reserved for interactive things (buttons, links,
-    focus). "Fit" (green/amber) and "do" (blue) never share a colour, so a high
-    score never looks like a button and vice-versa.
+COLOR — 6 base + 3 semantic, all in one warm tonal family:
+  BG_VOID      #0a0d0a  near-black w/ green undertone (terminal void, not #000)
+  BG_PANEL     #12160f  cards/panels, one step up from void
+  BORDER_DIM   #262b22  hairlines — dim, never high-contrast
+  TEXT_PRIMARY #d8dcd1  soft off-white (never pure white)
+  TEXT_DIM     #6b7264  secondary text, timestamps, labels
+  ACCENT_AMBER #e0a940  THE signature accent (owner's brand) — active states,
+                        score-bar fill, current pipeline stage
+  OK_OLIVE     #8fae5c  success / applied ("terminal green" without neon)
+  WARN_ORANGE  #d98c3f  needs review / flagged
+  FAIL_RUST    #a35c4a  failed / low fit (never bright alarm red)
 
-TYPE (a considered trio, not Inter-everywhere):
-  · Space Grotesk — display / headings (geometric, a little character)
-  · IBM Plex Sans — body copy (humanist, highly readable, distinct from Inter)
-  · IBM Plex Mono — scores, dates, counts, tabular data (data deserves a mono)
+TYPE — monospace identity is TOTAL, not partial:
+  JetBrains Mono 600-700  → headers, buttons, numbers (tabular-nums for data)
+  IBM Plex Mono 400       → body text (more readable at small sizes)
 
-SIGNATURE ELEMENT — the score chip: a colour-banded block showing the number
-(mono), a fit-band LABEL, and a fill bar. Never colour-alone (accessibility):
-the band label + number carry the meaning for anyone who can't distinguish hue.
+SIGNATURE ELEMENT — render_fit_score_bar(): a horizontal bar, amber fill
+proportional to the score on a BORDER_DIM track, with the numeric score in
+tabular-nums beside it. Length carries the meaning (works without color), the
+number is always present (never bar-only). Identical on every page via this
+one function — never reimplemented per page.
+
+IMPLEMENTATION NOTE: CSS is injected via st.html() with all blank lines
+stripped — markdown parsers terminate raw-HTML blocks at blank lines and spill
+the rest as visible text (this repo hit that bug once; never again). A blanket
+sidebar font override would break Streamlit's Material Symbols ligature icons,
+so fonts are scoped and icons explicitly re-exempted.
 ═══════════════════════════════════════════════════════════════════════════════
 """
 
@@ -33,192 +44,209 @@ from __future__ import annotations
 
 import html
 import re
-from typing import Tuple
+from typing import List, Optional, Tuple
 
 import streamlit as st
 
-# --- Colour tokens ---------------------------------------------------------- #
-BG = "#0E1621"          # app canvas — deep control-room navy
-SURFACE = "#18222E"     # cards / containers
-ELEVATED = "#212E3C"    # inputs, raised chrome
-BORDER = "#30404F"      # hairlines
-TEXT = "#E7EDF3"        # primary text
-MUTED = "#93A4B7"       # secondary text
-ACCENT = "#4C9DF7"      # interactive: buttons, links, focus (NEVER used for score)
-ACCENT_HOVER = "#6FB2FF"
+# --- Base tokens -------------------------------------------------------------- #
+BG_VOID = "#0a0d0a"
+BG_PANEL = "#12160f"
+BORDER_DIM = "#262b22"
+TEXT_PRIMARY = "#d8dcd1"
+TEXT_DIM = "#6b7264"
+ACCENT_AMBER = "#e0a940"
 
-# Semantic score gradient (fit strength). Paired ALWAYS with a text label.
-SCORE_STRONG = "#20B26C"    # >= 85  strong
-SCORE_GOOD = "#7FB83F"      # 70-84  good
-SCORE_MODERATE = "#E0A83D"  # 55-69  moderate
-SCORE_WEAK = "#C4634E"      # < 55   weak
+# --- Semantic tokens (same warm family) ---------------------------------------- #
+OK_OLIVE = "#8fae5c"
+WARN_ORANGE = "#d98c3f"
+FAIL_RUST = "#a35c4a"
 
-# Pipeline status colours (progression: discovered → recommended → applied)
+FONT_DISPLAY = "'JetBrains Mono', monospace"
+FONT_BODY = "'IBM Plex Mono', monospace"
+
 STATUS_COLORS = {
-    "new": "#6C7A8A",
-    "scored": "#5E8CC4",
-    "queued": "#4C9DF7",        # recommended
-    "applied": "#20B26C",
-    "skipped": "#6C7A8A",
-    "needs_review": "#E0A83D",
-    "failed": "#C4634E",
+    "new": TEXT_DIM,
+    "scored": TEXT_DIM,
+    "queued": ACCENT_AMBER,
+    "applied": OK_OLIVE,
+    "submitted": OK_OLIVE,
+    "skipped": TEXT_DIM,
+    "needs_review": WARN_ORANGE,
+    "needs_owner_input": WARN_ORANGE,
+    "pending_review": WARN_ORANGE,
+    "edited": ACCENT_AMBER,
+    "sent": OK_OLIVE,
+    "draft": TEXT_DIM,
+    "failed": FAIL_RUST,
 }
 STATUS_LABELS = {
-    "new": "Discovered",
-    "scored": "Scored",
-    "queued": "★ Recommended",
-    "applied": "Applied",
-    "skipped": "Skipped",
-    "needs_review": "Needs review",
-    "failed": "Failed",
+    "new": "discovered",
+    "scored": "scored",
+    "queued": "★ recommended",
+    "applied": "applied",
+    "skipped": "skipped",
+    "needs_review": "needs review",
+    "needs_owner_input": "needs your input",
+    "pending_review": "pending review",
 }
 
-FONT_DISPLAY = "'Space Grotesk', sans-serif"
-FONT_BODY = "'IBM Plex Sans', sans-serif"
-FONT_MONO = "'IBM Plex Mono', monospace"
 
-
-def fit_band(score) -> Tuple[str, str]:
-    """Return (label, hex colour) for a fit score. Label carries meaning w/o hue."""
-    if score is None:
-        return "Unscored", MUTED
-    s = float(score)
-    if s >= 85:
-        return "Strong fit", SCORE_STRONG
-    if s >= 70:
-        return "Good fit", SCORE_GOOD
-    if s >= 55:
-        return "Moderate", SCORE_MODERATE
-    return "Weak fit", SCORE_WEAK
-
-
-# --------------------------------------------------------------------------- #
-# CSS injection                                                                #
-# --------------------------------------------------------------------------- #
+# ------------------------------------------------------------------------------ #
+# CSS injection                                                                   #
+# ------------------------------------------------------------------------------ #
 def inject_theme() -> None:
-    """Inject fonts + the global stylesheet. Call once at the top of each page.
-
-    Two rendering landmines handled here (learned the hard way):
-    * Markdown parsers TERMINATE a raw-HTML block at the first blank line —
-      any blank line inside <style> spills the rest of the CSS as visible
-      page text. We strip all blank lines and prefer st.html(), which
-      bypasses markdown entirely.
-    * A blanket sidebar font override breaks Streamlit's Material Symbols
-      icon font (icons are ligatures -> render as literal text like
-      "keyboard_double_arrow_left"). Fonts are scoped + icons re-exempted.
-    """
-    payload = f"""
-<link rel="preconnect" href="https://fonts.googleapis.com">
+    """Write fonts + the full stylesheet. Call once at the top of every page."""
+    payload = f"""<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root {{
-  --ja-bg:{BG}; --ja-surface:{SURFACE}; --ja-elevated:{ELEVATED};
-  --ja-border:{BORDER}; --ja-text:{TEXT}; --ja-muted:{MUTED};
-  --ja-accent:{ACCENT}; --ja-accent-hover:{ACCENT_HOVER};
-}}
-.stApp {{ background:{BG}; color:{TEXT}; font-family:{FONT_BODY}; }}
+:root {{ --bg-void:{BG_VOID}; --bg-panel:{BG_PANEL}; --border-dim:{BORDER_DIM};
+  --text-primary:{TEXT_PRIMARY}; --text-dim:{TEXT_DIM}; --accent-amber:{ACCENT_AMBER}; }}
+.stApp {{ background:{BG_VOID}; color:{TEXT_PRIMARY}; font-family:{FONT_BODY}; }}
 [data-testid="stHeader"] {{ background:transparent; }}
-[data-testid="stSidebar"] {{ background:{SURFACE}; border-right:1px solid {BORDER}; }}
-/* Scope fonts to TEXT elements only — a blanket * override would break
-   Streamlit's Material Symbols icon font (ligature icons become text). */
+[data-testid="stSidebar"] {{ background:{BG_PANEL}; border-right:1px solid {BORDER_DIM}; }}
 [data-testid="stSidebar"] [data-testid="stSidebarNavLink"] span,
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
-[data-testid="stSidebar"] p, [data-testid="stSidebar"] label {{ font-family:{FONT_BODY}; }}
-[data-testid="stIconMaterial"], [class*="material-symbols"] {{
-  font-family:'Material Symbols Rounded' !important; }}
-
-h1,h2,h3,h4 {{ font-family:{FONT_DISPLAY} !important; color:{TEXT}; letter-spacing:-0.01em; }}
-h1 {{ font-weight:700; }}
-a, a:visited {{ color:{ACCENT}; text-decoration:none; }}
-a:hover {{ color:{ACCENT_HOVER}; text-decoration:underline; }}
-code, kbd {{ font-family:{FONT_MONO}; background:{ELEVATED}; color:{TEXT}; }}
-
-/* Buttons — the one interactive accent */
-.stButton>button, .stDownloadButton>button, .stLinkButton>a {{
-  font-family:{FONT_BODY}; font-weight:600; border-radius:8px;
-  border:1px solid {BORDER}; background:{ELEVATED}; color:{TEXT};
-  transition:border-color .15s ease, background .15s ease;
-}}
-.stButton>button:hover, .stDownloadButton>button:hover, .stLinkButton>a:hover {{
-  border-color:{ACCENT}; color:{ACCENT_HOVER};
-}}
-.stButton>button[kind="primary"] {{ background:{ACCENT}; border-color:{ACCENT}; color:#08131f; }}
-.stButton>button[kind="primary"]:hover {{ background:{ACCENT_HOVER}; color:#08131f; }}
-:focus-visible {{ outline:2px solid {ACCENT} !important; outline-offset:2px; }}
-
-/* Cards (bordered containers) + expanders */
-[data-testid="stExpander"] {{ border:1px solid {BORDER}; border-radius:10px; background:{SURFACE}; }}
-div[data-testid="stVerticalBlockBorderWrapper"] {{ border-radius:12px; }}
-
-/* Inputs */
-[data-baseweb="input"], [data-baseweb="select"], .stTextInput input, .stNumberInput input {{
-  background:{ELEVATED} !important; border-radius:8px !important;
-}}
-[data-testid="stMetricValue"] {{ font-family:{FONT_MONO}; color:{TEXT}; }}
-[data-testid="stMetricLabel"] {{ color:{MUTED}; }}
-
-/* --- signature: score chip --- */
-.ja-score {{
-  display:flex; flex-direction:column; gap:4px; align-items:center;
-  padding:10px 8px; border-radius:10px; background:{ELEVATED};
-  border:1px solid {BORDER}; border-left:4px solid var(--band,{MUTED}); min-width:92px;
-}}
-.ja-score-num {{ font-family:{FONT_MONO}; font-weight:600; font-size:1.7rem; line-height:1; color:var(--band,{TEXT}); }}
-.ja-score-band {{ font-family:{FONT_BODY}; font-size:.68rem; font-weight:600; text-transform:uppercase;
-  letter-spacing:.04em; color:{MUTED}; text-align:center; }}
-.ja-score-bar {{ width:100%; height:4px; border-radius:2px; background:{BORDER}; overflow:hidden; }}
-.ja-score-bar>span {{ display:block; height:100%; background:var(--band,{MUTED}); }}
-
-/* --- status pill --- */
-.ja-pill {{ display:inline-block; padding:2px 10px; border-radius:999px; font-family:{FONT_BODY};
-  font-size:.72rem; font-weight:600; border:1px solid; }}
-
-/* --- job card meta --- */
-.ja-title {{ font-family:{FONT_DISPLAY}; font-weight:600; font-size:1.06rem; color:{TEXT}; }}
-.ja-company {{ color:{TEXT}; font-weight:500; }}
-.ja-meta {{ font-family:{FONT_MONO}; font-size:.78rem; color:{MUTED}; }}
-.ja-reason {{ color:{MUTED}; font-size:.9rem; }}
-.ja-eyebrow {{ font-family:{FONT_MONO}; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:{ACCENT}; }}
-</style>
-"""
-    # CRITICAL: no blank lines may survive inside the payload (markdown ends a
-    # raw-HTML block at a blank line and dumps the rest as visible text).
+[data-testid="stSidebar"] p, [data-testid="stSidebar"] label {{ font-family:{FONT_BODY}; color:{TEXT_PRIMARY}; }}
+[data-testid="stIconMaterial"], [class*="material-symbols"] {{ font-family:'Material Symbols Rounded' !important; }}
+h1, h2, h3, h4 {{ font-family:{FONT_DISPLAY} !important; font-weight:700; color:{TEXT_PRIMARY}; letter-spacing:-0.01em; }}
+h3, h4 {{ font-weight:600; }}
+p, li, label, .stMarkdown {{ font-family:{FONT_BODY}; }}
+a, a:visited {{ color:{ACCENT_AMBER}; text-decoration:none; }}
+a:hover {{ text-decoration:underline; }}
+code, kbd {{ font-family:{FONT_DISPLAY}; background:{BG_PANEL}; color:{TEXT_PRIMARY};
+  border:1px solid {BORDER_DIM}; border-radius:3px; padding:1px 5px; }}
+[data-testid="stCode"] pre, .stCode {{ background:{BG_PANEL} !important; border:1px solid {BORDER_DIM}; }}
+.stButton>button, .stDownloadButton>button, .stFormSubmitButton>button, .stLinkButton>a {{
+  font-family:{FONT_DISPLAY}; font-weight:600; font-size:.85rem; border-radius:4px;
+  border:1px solid {BORDER_DIM}; background:{BG_PANEL}; color:{TEXT_PRIMARY};
+  transition:border-color .12s ease, color .12s ease; }}
+.stButton>button:hover, .stDownloadButton>button:hover, .stFormSubmitButton>button:hover, .stLinkButton>a:hover {{
+  border-color:{ACCENT_AMBER}; color:{ACCENT_AMBER}; }}
+.stButton>button[kind="primary"], .stFormSubmitButton>button[kind="primary"] {{
+  background:{ACCENT_AMBER}; border-color:{ACCENT_AMBER}; color:{BG_VOID}; }}
+.stButton>button[kind="primary"]:hover {{ background:#edbd5e; color:{BG_VOID}; }}
+.stButton>button:disabled {{ color:{TEXT_DIM}; border-color:{BORDER_DIM}; }}
+:focus-visible {{ outline:2px solid {ACCENT_AMBER} !important; outline-offset:2px; }}
+.stButton>button:focus-visible {{ outline:2px solid {ACCENT_AMBER} !important; }}
+[data-testid="stExpander"] {{ border:1px solid {BORDER_DIM}; border-radius:6px; background:{BG_PANEL}; }}
+[data-testid="stExpander"] summary {{ font-family:{FONT_DISPLAY}; }}
+div[data-testid="stVerticalBlockBorderWrapper"] {{ border-radius:6px; }}
+[data-baseweb="input"], [data-baseweb="select"], [data-baseweb="textarea"],
+.stTextInput input, .stNumberInput input, .stTextArea textarea {{
+  background:{BG_PANEL} !important; border-radius:4px !important;
+  font-family:{FONT_BODY} !important; color:{TEXT_PRIMARY} !important; }}
+[data-testid="stMetricValue"] {{ font-family:{FONT_DISPLAY}; font-variant-numeric:tabular-nums; color:{TEXT_PRIMARY}; }}
+[data-testid="stMetricLabel"] {{ color:{TEXT_DIM}; font-family:{FONT_BODY}; }}
+[data-testid="stDataFrame"] {{ font-family:{FONT_DISPLAY}; font-variant-numeric:tabular-nums; }}
+/* --- signature: fit-score bar (length carries meaning; number always shown) --- */
+.ja-fit {{ display:flex; align-items:center; gap:10px; }}
+.ja-fit-bar {{ flex:0 0 150px; max-width:40vw; height:10px; background:{BORDER_DIM};
+  border-radius:2px; overflow:hidden; }}
+.ja-fit-bar>span {{ display:block; height:100%; background:{ACCENT_AMBER}; }}
+.ja-fit-num {{ font-family:{FONT_DISPLAY}; font-weight:700; font-size:1.05rem;
+  font-variant-numeric:tabular-nums; color:{ACCENT_AMBER}; min-width:2.4ch; text-align:right; }}
+.ja-fit-num.dim {{ color:{TEXT_DIM}; }}
+/* --- terminal chrome --- */
+.ja-topbar {{ display:flex; justify-content:space-between; align-items:center;
+  font-family:{FONT_DISPLAY}; font-size:.8rem; color:{TEXT_DIM};
+  border-bottom:1px solid {BORDER_DIM}; padding-bottom:6px; margin-bottom:10px; }}
+.ja-badge {{ font-family:{FONT_DISPLAY}; font-size:.8rem; }}
+.ja-badge .on {{ color:{ACCENT_AMBER}; }}
+.ja-badge .off {{ color:{FAIL_RUST}; }}
+.ja-prompt {{ font-family:{FONT_DISPLAY}; font-size:.85rem; color:{TEXT_DIM}; margin:2px 0 14px 0; }}
+.ja-prompt .p {{ color:{ACCENT_AMBER}; font-weight:600; }}
+/* --- status pill / stage trail / rows --- */
+.ja-pill {{ display:inline-block; padding:1px 9px; border-radius:3px; font-family:{FONT_DISPLAY};
+  font-size:.72rem; font-weight:600; letter-spacing:.03em; border:1px solid; }}
+.ja-trail {{ font-family:{FONT_DISPLAY}; font-size:.78rem; color:{TEXT_DIM}; letter-spacing:.02em; }}
+.ja-trail .cur {{ color:{ACCENT_AMBER}; font-weight:600; }}
+.ja-trail .sep {{ color:{BORDER_DIM}; padding:0 4px; }}
+.ja-title {{ font-family:{FONT_DISPLAY}; font-weight:600; font-size:1.02rem; color:{TEXT_PRIMARY}; }}
+.ja-meta {{ font-family:{FONT_DISPLAY}; font-size:.78rem; color:{TEXT_DIM}; font-variant-numeric:tabular-nums; }}
+.ja-reason {{ color:{TEXT_DIM}; font-size:.86rem; }}
+.ja-file {{ font-family:{FONT_DISPLAY}; font-size:.85rem; color:{TEXT_PRIMARY};
+  font-variant-numeric:tabular-nums; }}
+.ja-file .dim {{ color:{TEXT_DIM}; }}
+.ja-comment {{ font-family:{FONT_DISPLAY}; font-size:.85rem; color:{TEXT_DIM}; margin:14px 0 2px 0; }}
+.ja-comment .h {{ color:{ACCENT_AMBER}; }}
+</style>"""
     payload = re.sub(r"\n\s*\n+", "\n", payload).strip()
     if hasattr(st, "html"):
-        # st.html bypasses markdown parsing entirely — the robust path.
         st.html(payload)
     else:  # very old Streamlit fallback
         st.markdown(payload, unsafe_allow_html=True)
 
 
-def score_chip(score) -> str:
-    """HTML for the signature score chip. Render with unsafe_allow_html=True."""
-    label, color = fit_band(score)
-    num = "—" if score is None else f"{float(score):.0f}"
-    pct = 0 if score is None else max(0, min(100, float(score)))
-    return (
-        f'<div class="ja-score" style="--band:{color}">'
-        f'<span class="ja-score-num">{num}</span>'
-        f'<span class="ja-score-band">{html.escape(label)}</span>'
-        f'<span class="ja-score-bar"><span style="width:{pct}%"></span></span>'
-        f"</div>"
+# ------------------------------------------------------------------------------ #
+# Signature component — THE fit-score bar (use everywhere, never reimplement)     #
+# ------------------------------------------------------------------------------ #
+def render_fit_score_bar(score) -> str:
+    """HTML for the signature score bar: amber fill ∝ score + tabular number.
+
+    Legible without color (length + number carry the meaning). Unscored jobs
+    show an empty track and a dim em-dash — never a fabricated number.
+    """
+    if score is None:
+        return ('<span class="ja-fit"><span class="ja-fit-bar"><span style="width:0%"></span></span>'
+                '<span class="ja-fit-num dim">—</span></span>')
+    pct = max(0.0, min(100.0, float(score)))
+    return (f'<span class="ja-fit"><span class="ja-fit-bar"><span style="width:{pct:.0f}%"></span></span>'
+            f'<span class="ja-fit-num">{pct:.0f}</span></span>')
+
+
+# ------------------------------------------------------------------------------ #
+# Terminal chrome helpers                                                         #
+# ------------------------------------------------------------------------------ #
+def provider_badge() -> str:
+    """[●] ollama active — live LLM indicator, shown in the header of every page."""
+    try:
+        import api_client as api
+        status = api.llm_status()
+        name = status.get("active_provider", "?")
+        return f'<span class="ja-badge"><span class="on">[●]</span> {html.escape(name)} active</span>'
+    except Exception:
+        return '<span class="ja-badge"><span class="off">[○]</span> backend offline</span>'
+
+
+def page_header(title: str, cmd: str = "", subtitle: str = "") -> None:
+    """Terminal-style header: app bar + $ command line + optional subtitle."""
+    st.markdown(
+        f'<div class="ja-topbar"><span>job-auto-apply</span>{provider_badge()}</div>',
+        unsafe_allow_html=True,
     )
+    st.markdown(f"# {title}")
+    if cmd:
+        st.markdown(f'<div class="ja-prompt"><span class="p">$</span> {html.escape(cmd)}</div>',
+                    unsafe_allow_html=True)
+    if subtitle:
+        st.markdown(f'<div class="ja-reason" style="margin:-6px 0 12px 0">{html.escape(subtitle)}</div>',
+                    unsafe_allow_html=True)
 
 
 def status_pill(status: str) -> str:
-    color = STATUS_COLORS.get(status, MUTED)
-    label = STATUS_LABELS.get(status, status.replace("_", " ").title())
-    return (
-        f'<span class="ja-pill" style="color:{color};border-color:{color}33;'
-        f'background:{color}1a">{html.escape(label)}</span>'
-    )
+    color = STATUS_COLORS.get(status, TEXT_DIM)
+    label = STATUS_LABELS.get(status, status.replace("_", " "))
+    return (f'<span class="ja-pill" style="color:{color};border-color:{color}55;'
+            f'background:{color}14">{html.escape(label)}</span>')
 
 
-def page_header(title: str, subtitle: str = "", eyebrow: str = "") -> None:
-    eb = f'<div class="ja-eyebrow">{html.escape(eyebrow)}</div>' if eyebrow else ""
-    sub = f'<div class="ja-reason" style="margin-top:2px">{html.escape(subtitle)}</div>' if subtitle else ""
-    st.markdown(
-        f'{eb}<h1 style="margin:0 0 2px 0">{html.escape(title)}</h1>{sub}',
-        unsafe_allow_html=True,
-    )
+def stage_trail(stages: List[Tuple[str, bool]]) -> str:
+    """Pipeline trail: discovered → scored (82) → tailored → applied.
+
+    `stages` = [(label, is_current_or_reached_last)] — the LAST truthy stage is
+    highlighted amber; connectors stay dim. Earned by real sequence data only.
+    """
+    parts = []
+    last_idx = max((i for i, (_, on) in enumerate(stages) if on), default=-1)
+    for i, (label, _) in enumerate(stages):
+        cls = "cur" if i == last_idx else ""
+        parts.append(f'<span class="{cls}">{html.escape(label)}</span>')
+    sep = '<span class="sep">→</span>'
+    return f'<span class="ja-trail">{sep.join(parts)}</span>'
+
+
+def config_comment(text: str) -> None:
+    """Settings section header styled like a YAML comment: # scoring"""
+    st.markdown(f'<div class="ja-comment"><span class="h">#</span> {html.escape(text)}</div>',
+                unsafe_allow_html=True)

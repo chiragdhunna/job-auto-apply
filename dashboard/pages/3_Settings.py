@@ -5,14 +5,13 @@ from __future__ import annotations
 import streamlit as st
 
 import api_client as api
-from theme import inject_theme, page_header
+from theme import config_comment, inject_theme, page_header
 
 st.set_page_config(page_title="Settings · job-auto-apply", page_icon="⚙️", layout="wide")
 inject_theme()
 
-page_header("Settings", "What gets discovered, what counts as a strong fit, how often it runs.",
-            eyebrow="Configuration")
-st.write("")
+page_header("settings", cmd="cat keywords.yaml --editable",
+            subtitle="What gets discovered, what counts as a strong fit, how often it runs.")
 
 try:
     settings = api.get_settings()
@@ -21,7 +20,7 @@ except api.APIError as exc:
     st.stop()
 
 # --- LLM engine status ------------------------------------------------------ #
-st.markdown("#### LLM engine")
+config_comment("llm engine")
 try:
     status = api.llm_status()
     c1, c2, c3 = st.columns(3)
@@ -42,7 +41,7 @@ except api.APIError as exc:
 st.divider()
 
 # --- Editable settings ------------------------------------------------------ #
-st.markdown("#### Scoring & cadence")
+config_comment("scoring")
 with st.form("settings_form"):
     threshold = st.slider(
         "Recommend threshold — score at or above this shows as ★ Recommended",
@@ -53,7 +52,7 @@ with st.form("settings_form"):
         min_value=1, value=int(settings.get("run_interval_minutes", 60)),
     )
 
-    st.markdown("**Browser sources** (need a logged-in session; discovery only)")
+    st.markdown("**browser sources** — need a logged-in session; discovery only")
     platform_toggles = dict(settings.get("platform_toggles", {}))
     browser_keys = [k for k in ("linkedin", "indeed") if k in platform_toggles]
     ats_keys = [k for k in ("greenhouse", "lever", "ashby", "workday") if k in platform_toggles]
@@ -63,13 +62,13 @@ with st.form("settings_form"):
         for col, k in zip(cols, browser_keys):
             new_platform[k] = col.checkbox(k.title(), value=bool(platform_toggles[k]))
 
-    st.markdown("**Company ATS sources** (public APIs)")
+    st.markdown("**company ats sources** — public APIs")
     if ats_keys:
         cols = st.columns(len(ats_keys))
         for col, k in zip(cols, ats_keys):
             new_platform[k] = col.checkbox(k.title(), value=bool(platform_toggles[k]))
 
-    st.markdown("**Web job boards & aggregators**")
+    st.markdown("**web job boards & aggregators**")
     source_toggles = dict(settings.get("source_toggles", {}))
     new_sources = dict(source_toggles)
     keys = sorted(source_toggles.keys())
@@ -93,7 +92,7 @@ with st.form("settings_form"):
 
 st.divider()
 
-st.markdown("#### Run manually")
+config_comment("run manually")
 c1, c2 = st.columns(2)
 if c1.button("🔎 Discover jobs now", width="stretch"):
     with st.spinner("Scraping every enabled source…"):
@@ -114,7 +113,7 @@ st.caption("Target roles, locations and company slugs live in `config/keywords.y
 st.divider()
 
 # --- Danger zone ------------------------------------------------------------ #
-st.markdown("#### 🗑️ Danger zone")
+config_comment("danger zone")
 with st.expander("Clear the database"):
     st.warning(
         "Permanently deletes **all discovered jobs, your applied history, and all "

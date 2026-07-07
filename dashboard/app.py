@@ -11,23 +11,16 @@ from collections import Counter
 import streamlit as st
 
 import api_client as api
-from theme import (
-    MUTED,
-    SCORE_STRONG,
-    inject_theme,
-    page_header,
-    status_pill,
-)
+from theme import inject_theme, page_header
 
-st.set_page_config(page_title="job-auto-apply", page_icon="🧭", layout="wide")
+st.set_page_config(page_title="job-auto-apply", page_icon="▮", layout="wide")
 inject_theme()
 
 page_header(
-    "job-auto-apply",
-    "Discover roles everywhere, score them against your resume, and act on the best fits fast.",
-    eyebrow="Command center",
+    "overview",
+    cmd="pipeline status && llm status",
+    subtitle="Discover roles everywhere, score them against your resume, act on the best fits fast.",
 )
-st.write("")
 
 # --- Backend health -------------------------------------------------------- #
 try:

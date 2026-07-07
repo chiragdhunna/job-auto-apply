@@ -11,17 +11,16 @@ import urllib.parse
 import streamlit as st
 
 import api_client as api
-from theme import MUTED, inject_theme, page_header, score_chip
+from theme import inject_theme, page_header
 
 st.set_page_config(page_title="Outreach · job-auto-apply", page_icon="✉️", layout="wide")
 inject_theme()
 
 page_header(
-    "Outreach",
-    "Personalized drafts for recruiters & hiring managers. You review and send every message yourself.",
-    eyebrow="Draft-only — nothing is ever sent automatically",
+    "outreach",
+    cmd="outreach --drafts --review-only",
+    subtitle="Personalized drafts for recruiters & hiring managers. Draft-only: you review and send every message yourself.",
 )
-st.write("")
 
 # --- Overview ---------------------------------------------------------------- #
 try:

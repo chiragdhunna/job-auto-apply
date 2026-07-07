@@ -11,17 +11,16 @@ from __future__ import annotations
 import streamlit as st
 
 import api_client as api
-from theme import inject_theme, page_header, score_chip, status_pill
+from theme import inject_theme, page_header, render_fit_score_bar, status_pill
 
-st.set_page_config(page_title="Recommended · job-auto-apply", page_icon="⭐", layout="wide")
+st.set_page_config(page_title="Recommended · job-auto-apply", page_icon="▮", layout="wide")
 inject_theme()
 
 page_header(
-    "Recommended",
-    "Highest-fit first. Open the posting, grab your tailored resume, apply, tick it off.",
-    eyebrow="Your shortlist",
+    "recommended",
+    cmd="recommended --sort=fit-score --desc",
+    subtitle="Highest-fit first. Open the posting, grab your tailored resume, apply, tick it off.",
 )
-st.write("")
 
 # --- Controls --------------------------------------------------------------- #
 c1, c2, c3, c4 = st.columns([1.3, 1, 1, 1.4])
@@ -67,14 +66,19 @@ if sources:
     picked = st.multiselect("Sources", sources, default=sources)
     jobs = [j for j in jobs if j["source"] in picked]
 
-# --- Empty state (says what to do next) ------------------------------------- #
+# --- Empty state (an invitation to act, not a dead end) --------------------- #
 if not jobs:
+    try:
+        interval = api.get_settings().get("run_interval_minutes", 60)
+        cadence = f"the pipeline runs every {interval} min"
+    except api.APIError:
+        cadence = "the pipeline runs on its schedule"
     st.info(
-        "Nothing to show yet. Click **Discover jobs now** to pull fresh postings, "
-        "then **Score new jobs** to rank them — anything at or above your score "
-        "threshold shows up here. (Lower the minimum-score slider if you've "
-        "filtered everything out.)",
-        icon="🧭",
+        f"No jobs to show yet — {cadence}, or trigger one now: **Discover jobs now** "
+        "pulls fresh postings, **Score new jobs** ranks them. Anything at or above "
+        "your threshold lands here. (Filtered everything out? Lower the minimum-score "
+        "slider.)",
+        icon="▮",
     )
     st.stop()
 
@@ -85,9 +89,10 @@ st.write("")
 RENDER_CAP = 60
 for j in jobs[:RENDER_CAP]:
     with st.container(border=True):
-        left, right = st.columns([1, 6], gap="medium")
+        left, right = st.columns([1.4, 5.6], gap="medium")
         with left:
-            st.markdown(score_chip(j.get("fit_score")), unsafe_allow_html=True)
+            # The signature element: same bar, same place, every page.
+            st.markdown(render_fit_score_bar(j.get("fit_score")), unsafe_allow_html=True)
         with right:
             st.markdown(
                 f'<span class="ja-title">{j["title"]}</span> '
@@ -145,8 +150,8 @@ for j in jobs[:RENDER_CAP]:
                     except api.APIError as exc:
                         st.error(str(exc))
             with bcols[4]:
-                if j["status"] != "applied" and st.button("Skip", key=f"skip_{j['id']}",
-                                                           width="stretch", help="Hide this job"):
+                if j["status"] != "applied" and st.button("Skip this job", key=f"skip_{j['id']}",
+                                                           width="stretch", help="Hide it from the list"):
                     try:
                         api.set_job_status(j["id"], "skipped"); st.rerun()
                     except api.APIError as exc:

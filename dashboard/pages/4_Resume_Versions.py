@@ -10,9 +10,8 @@ from theme import inject_theme, page_header
 st.set_page_config(page_title="Resume Versions · job-auto-apply", page_icon="📄", layout="wide")
 inject_theme()
 
-page_header("Resume Versions", "Every resume the system has generated, per job.",
-            eyebrow="Documents")
-st.write("")
+page_header("resume versions", cmd="ls data/resumes/ --per-job",
+            subtitle="Every resume the system has generated, per job.")
 
 try:
     jobs = api.list_jobs(limit=2000)
@@ -69,11 +68,14 @@ if not versions:
     st.info("No resume versions for this job yet — generate one above.", icon="📄")
     st.stop()
 
+import os as _os
 for v in versions:
-    badge = "✅ compiled PDF" if v.get("compiled") else "⚠️ LaTeX only (compile failed)"
+    badge = "compiled ✓" if v.get("compiled") else "tex only — compile failed, install tectonic/pdflatex"
+    fname = _os.path.basename(v.get("pdf_path") or "") or f"job_{job_id}_resume_v{v['id']}.tex"
     with st.container(border=True):
         st.markdown(
-            f'<span class="ja-meta">Version #{v["id"]} · {v["generated_at"]} · {badge}</span>',
+            f'<span class="ja-file">{fname}</span>  '
+            f'<span class="ja-file dim">· v{v["id"]} · {v["generated_at"][:19]} · {badge}</span>',
             unsafe_allow_html=True,
         )
         cols = st.columns([1, 1, 3])

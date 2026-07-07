@@ -34,6 +34,7 @@ def _application_to_dict(app: Application) -> Dict[str, Any]:
         "company": job.company if job else None,
         "platform": job.source if job else None,
         "url": job.url if job else None,
+        "fit_score": job.fit_score if job else None,
         "status": app.status,
         "submitted_at": app.submitted_at.isoformat() if app.submitted_at else None,
         "resume_version_id": app.resume_version_id,

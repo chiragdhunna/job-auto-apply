@@ -1,4 +1,8 @@
-"""Applied — the applications you've marked as submitted."""
+"""Applied — the applications you've marked as submitted.
+
+Each row carries a pipeline-stage trail (discovered → scored (NN) → tailored →
+applied) — a real sequence this job actually moved through, not decoration.
+"""
 
 from __future__ import annotations
 
@@ -6,13 +10,19 @@ import pandas as pd
 import streamlit as st
 
 import api_client as api
-from theme import inject_theme, page_header, status_pill
+from theme import (
+    inject_theme,
+    page_header,
+    render_fit_score_bar,
+    stage_trail,
+    status_pill,
+)
 
-st.set_page_config(page_title="Applied · job-auto-apply", page_icon="📨", layout="wide")
+st.set_page_config(page_title="Applied · job-auto-apply", page_icon="▮", layout="wide")
 inject_theme()
 
-page_header("Applied", "Everything you've marked as submitted.", eyebrow="History")
-st.write("")
+page_header("applied", cmd="history --applied --by=date",
+            subtitle="Everything you've marked as submitted.")
 
 try:
     apps = api.list_applications()
@@ -22,10 +32,10 @@ except api.APIError as exc:
 
 if not apps:
     st.info(
-        "No applications tracked yet. On the **★ Recommended** page, apply to a "
-        "job and hit **✓ I applied** — it'll appear here with the resume version "
-        "you used.",
-        icon="📨",
+        "Nothing applied yet. On the **recommended** page: open a posting, send "
+        "your application, then hit **✓ I applied** — it lands here with its "
+        "full pipeline trail.",
+        icon="▮",
     )
     st.stop()
 
@@ -57,34 +67,40 @@ if isinstance(date_range, tuple) and len(date_range) == 2 and df["submitted_at"]
 
 view = df[mask].sort_values("submitted_at", ascending=False)
 st.caption(f"{len(view)} application(s)")
-st.dataframe(
-    view[["id", "submitted_at", "platform", "company", "title", "status", "platform_response_notes"]],
-    width="stretch",
-    hide_index=True,
-    column_config={
-        "id": st.column_config.NumberColumn("ID", width="small"),
-        "submitted_at": st.column_config.DatetimeColumn("Applied", format="MMM D, YYYY"),
-        "platform": "Source",
-        "platform_response_notes": "Notes",
-    },
-)
 
-# --- Detail ----------------------------------------------------------------- #
-st.divider()
-ids = view["id"].tolist()
-if ids:
-    sel = st.selectbox("Inspect an application", ids, format_func=lambda i: f"#{i}")
-    row = df[df["id"] == sel].iloc[0].to_dict()
-    st.markdown(
-        f'<span class="ja-title">{row.get("title")}</span> · '
-        f'<span class="ja-company">{row.get("company")}</span> '
-        f'{status_pill(row.get("status", ""))}',
-        unsafe_allow_html=True,
-    )
-    if row.get("url"):
-        st.markdown(f'<span class="ja-meta">🔗 <a href="{row["url"]}" target="_blank">{row["url"]}</a></span>',
-                    unsafe_allow_html=True)
-    answers = row.get("custom_answers")
-    if answers:
-        st.markdown("**Answers you submitted:**")
-        st.json(answers)
+# --- Cards with the earned stage trail --------------------------------------- #
+for _, row in view.head(50).iterrows():
+    r = row.to_dict()
+    fit = r.get("fit_score")
+    with st.container(border=True):
+        # Trail: real stages this job actually passed through, in real order.
+        scored_label = f"scored ({fit:.0f})" if pd.notna(fit) and fit is not None else "scored"
+        trail = stage_trail([
+            ("discovered", True),
+            (scored_label, pd.notna(fit) and fit is not None),
+            ("tailored", bool(r.get("resume_version_id"))),
+            ("applied", True),
+        ])
+        st.markdown(trail, unsafe_allow_html=True)
+        left, right = st.columns([1.4, 5.6], gap="medium")
+        with left:
+            st.markdown(render_fit_score_bar(fit if pd.notna(fit) else None),
+                        unsafe_allow_html=True)
+        with right:
+            when = r["submitted_at"].strftime("%Y-%m-%d") if pd.notna(r.get("submitted_at")) else "—"
+            st.markdown(
+                f'<span class="ja-title">{r.get("title")}</span> '
+                f'<span class="ja-meta">·</span> <span class="ja-company">{r.get("company")}</span><br>'
+                f'<span class="ja-meta">{when} · via {r.get("platform")}</span> '
+                f'{status_pill(r.get("status", ""))}',
+                unsafe_allow_html=True,
+            )
+            if r.get("platform_response_notes"):
+                st.markdown(f'<span class="ja-reason">{r["platform_response_notes"]}</span>',
+                            unsafe_allow_html=True)
+            cols = st.columns([1.2, 4])
+            if r.get("url"):
+                cols[0].link_button("Open posting", r["url"], width="stretch")
+            if r.get("custom_answers"):
+                with st.expander("Answers you submitted"):
+                    st.json(r["custom_answers"])

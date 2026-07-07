@@ -1,13 +1,12 @@
-# Base theme — the CSS in dashboard/theme.py layers the full design on top,
-# but setting these makes Streamlit's own chrome (menus, widgets) match so there
-# is no flash of default styling before the custom CSS applies.
+# Base theme matched to dashboard/theme.py (terminal/amber) so Streamlit's own
+# chrome doesn't flash a mismatched palette before the custom CSS applies.
 [theme]
 base = "dark"
-primaryColor = "#4C9DF7"
-backgroundColor = "#0E1621"
-secondaryBackgroundColor = "#18222E"
-textColor = "#E7EDF3"
-font = "sans serif"
+primaryColor = "#e0a940"
+backgroundColor = "#0a0d0a"
+secondaryBackgroundColor = "#12160f"
+textColor = "#d8dcd1"
+font = "monospace"
 
 [server]
 headless = true
