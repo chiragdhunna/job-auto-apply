@@ -27,6 +27,9 @@ platforms:
   greenhouse: true
   lever: true
   workday: true
+  # Web-wide public job APIs: Remotive, RemoteOK, Arbeitnow, The Muse (+ Adzuna
+  # if ADZUNA_APP_ID/KEY are set in .env). No browser, no login, low risk.
+  web_boards: true
 
 # How often the scheduler runs the full pipeline (minutes).
 run_interval_minutes: 60

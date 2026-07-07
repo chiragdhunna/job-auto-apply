@@ -91,6 +91,10 @@ INDEED_PASSWORD: str = os.getenv("INDEED_PASSWORD", "")
 DB_PATH: str = os.getenv("DB_PATH", "./data/jobs.db")
 BROWSER_PROFILE_DIR: str = os.getenv("BROWSER_PROFILE_DIR", "./browser_profiles/default")
 
+# Optional Adzuna aggregator (free tier: https://developer.adzuna.com).
+ADZUNA_APP_ID: str = (os.getenv("ADZUNA_APP_ID") or "").strip()
+ADZUNA_APP_KEY: str = (os.getenv("ADZUNA_APP_KEY") or "").strip()
+
 try:
     MAX_APPLICATIONS_PER_RUN: int = int(os.getenv("MAX_APPLICATIONS_PER_RUN", "10") or 10)
 except ValueError:
@@ -116,6 +120,8 @@ DEFAULT_PLATFORM_TOGGLES: Dict[str, bool] = {
     "greenhouse": True,
     "lever": True,
     "workday": True,
+    # Web-wide public job APIs (Remotive, RemoteOK, Arbeitnow, The Muse, Adzuna)
+    "web_boards": True,
 }
 
 # Keys that are runtime-tunable and therefore stored in the settings table
