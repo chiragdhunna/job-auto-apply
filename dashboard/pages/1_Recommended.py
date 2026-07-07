@@ -1,8 +1,9 @@
 """Recommended — the jobs worth applying to next, best fit first.
 
-For each job: fit score + reasoning, a link to the actual posting, a one-click
-JD-tailored resume (download it, then apply yourself), and a "Mark applied"
-tick so the system tracks what you've already done.
+Each row leads with the signature score chip (fit strength at a glance), then the
+posting details, a link to apply, a one-click tailored resume, and a tick to
+record that you've applied. The score chip's colour + band label encode 60-vs-95
+as visual weight — the whole point of the tool.
 """
 
 from __future__ import annotations
@@ -10,32 +11,40 @@ from __future__ import annotations
 import streamlit as st
 
 import api_client as api
+from theme import inject_theme, page_header, score_chip, status_pill
 
 st.set_page_config(page_title="Recommended · job-auto-apply", page_icon="⭐", layout="wide")
-st.title("⭐ Recommended jobs")
-st.caption("Highest-fit first. Open the posting, grab your tailored resume, apply, tick it off.")
+inject_theme()
+
+page_header(
+    "Recommended",
+    "Highest-fit first. Open the posting, grab your tailored resume, apply, tick it off.",
+    eyebrow="Your shortlist",
+)
+st.write("")
 
 # --- Controls --------------------------------------------------------------- #
-c1, c2, c3, c4 = st.columns([1.2, 1, 1, 1.4])
+c1, c2, c3, c4 = st.columns([1.3, 1, 1, 1.4])
 with c1:
-    min_score = st.slider("Minimum fit score", 0, 100, 0, step=5)
+    min_score = st.slider("Minimum fit score", 0, 100, 0, step=5,
+                          help="Hide anything the LLM scored below this")
 with c2:
-    show_done = st.checkbox("Show applied/skipped", value=False)
+    show_done = st.checkbox("Include applied / skipped", value=False)
 with c3:
     limit = st.selectbox("Show top", [25, 50, 100, 200], index=1)
 with c4:
-    search = st.text_input("Search title/company", "")
+    search = st.text_input("Search title or company", "", placeholder="e.g. backend, Stripe")
 
-ca, cb = st.columns([1, 1])
-with ca:
-    if st.button("🔎 Discover new jobs now", use_container_width=True):
-        with st.spinner("Scraping ATS boards + web job boards…"):
+a, b, _ = st.columns([1, 1, 2])
+with a:
+    if st.button("🔎 Discover jobs now", width="stretch"):
+        with st.spinner("Scraping every enabled source…"):
             try:
                 st.success(api.scrape_now()["summary"])
             except api.APIError as exc:
                 st.error(str(exc))
-with cb:
-    if st.button("🧮 Score unscored jobs", use_container_width=True):
+with b:
+    if st.button("🧮 Score new jobs", width="stretch"):
         with st.spinner("Scoring via the active LLM (slow on Ollama)…"):
             try:
                 st.success(api.score_new())
@@ -44,9 +53,7 @@ with cb:
 
 # --- Data ------------------------------------------------------------------- #
 try:
-    jobs = api.get_recommended(
-        min_score=min_score or None, include_done=show_done, limit=int(limit)
-    )
+    jobs = api.get_recommended(min_score=min_score or None, include_done=show_done, limit=int(limit))
 except api.APIError as exc:
     st.error(str(exc))
     st.stop()
@@ -60,100 +67,116 @@ if sources:
     picked = st.multiselect("Sources", sources, default=sources)
     jobs = [j for j in jobs if j["source"] in picked]
 
-n_rec = sum(1 for j in jobs if j.get("recommended"))
-st.caption(f"{len(jobs)} job(s) shown — {n_rec} above your threshold")
-
-STATUS_BADGE = {"applied": "✅ applied", "skipped": "⏭ skipped", "queued": "", "scored": "", "needs_review": ""}
-
-# --- Job cards --------------------------------------------------------------- #
-for j in jobs:
-    score = j.get("fit_score")
-    star = "⭐ " if j.get("recommended") else ""
-    badge = STATUS_BADGE.get(j["status"], "")
-    header = (
-        f"{star}{score:.0f} · {j['title']} — {j['company']}"
-        f" · {(j.get('location') or 'location n/a')[:40]}"
-        f" · {j['source']} {badge}"
+# --- Empty state (says what to do next) ------------------------------------- #
+if not jobs:
+    st.info(
+        "Nothing to show yet. Click **Discover jobs now** to pull fresh postings, "
+        "then **Score new jobs** to rank them — anything at or above your score "
+        "threshold shows up here. (Lower the minimum-score slider if you've "
+        "filtered everything out.)",
+        icon="🧭",
     )
-    with st.expander(header):
-        details = j.get("score_details") or {}
-        if details.get("reasoning"):
-            st.write(f"**Why this fits:** {details['reasoning']}")
-        mcol, gcol = st.columns(2)
-        if details.get("matched_skills"):
-            mcol.write("**You match:** " + ", ".join(details["matched_skills"][:10]))
-        if details.get("gaps"):
-            gcol.write("**Gaps:** " + ", ".join(details["gaps"][:6]))
-        if j.get("salary_range"):
-            st.write(f"💰 {j['salary_range']}")
+    st.stop()
 
-        b1, b2, b3, b4, b5 = st.columns([1.2, 1.3, 1.3, 1, 1])
-        with b1:
-            st.link_button("🔗 Open posting", j["url"], use_container_width=True)
-        with b2:
-            if st.button("📄 Tailored resume", key=f"tailor_{j['id']}",
-                         help="LLM-tailored to this JD (slow on Ollama, fast on Gemini)",
-                         use_container_width=True):
-                with st.spinner("Tailoring resume to this JD…"):
+n_rec = sum(1 for j in jobs if j.get("recommended"))
+st.caption(f"{len(jobs)} shown · {n_rec} at or above your recommend threshold")
+st.write("")
+
+RENDER_CAP = 60
+for j in jobs[:RENDER_CAP]:
+    with st.container(border=True):
+        left, right = st.columns([1, 6], gap="medium")
+        with left:
+            st.markdown(score_chip(j.get("fit_score")), unsafe_allow_html=True)
+        with right:
+            st.markdown(
+                f'<span class="ja-title">{j["title"]}</span> '
+                f'<span class="ja-meta">·</span> '
+                f'<span class="ja-company">{j["company"]}</span>',
+                unsafe_allow_html=True,
+            )
+            loc = j.get("location") or "location n/a"
+            salary = f' · 💰 {j["salary_range"]}' if j.get("salary_range") else ""
+            st.markdown(
+                f'<span class="ja-meta">{loc} · via {j["source"]}{salary}</span> '
+                f'{status_pill(j["status"])}',
+                unsafe_allow_html=True,
+            )
+            details = j.get("score_details") or {}
+            if details.get("reasoning"):
+                st.markdown(f'<div class="ja-reason">{details["reasoning"]}</div>',
+                            unsafe_allow_html=True)
+
+            bcols = st.columns([1.1, 1.3, 1.2, 1.1, 0.9])
+            with bcols[0]:
+                st.link_button("🔗 Open posting", j["url"] or "#", width="stretch")
+            with bcols[1]:
+                if st.button("📄 Tailor resume", key=f"tailor_{j['id']}", width="stretch",
+                             help="LLM-tailored to this JD (slow on Ollama, seconds on Gemini)"):
+                    with st.spinner("Tailoring resume to this job…"):
+                        try:
+                            res = api.tailor_resume(j["id"], force_tailor=True)
+                            st.session_state[f"rv_{j['id']}"] = res.get("resume_version_id")
+                            if not res.get("compiled"):
+                                st.warning("Generated the LaTeX, but PDF compile failed — "
+                                           "check that tectonic/pdflatex is installed.")
+                        except api.APIError as exc:
+                            st.error(str(exc))
+            with bcols[2]:
+                if st.button("📎 Quick resume", key=f"quick_{j['id']}", width="stretch",
+                             help="Instant: compiles your base resume, no LLM"):
+                    with st.spinner("Compiling base resume…"):
+                        try:
+                            res = api.tailor_resume(j["id"], force_tailor=False)
+                            st.session_state[f"rv_{j['id']}"] = res.get("resume_version_id")
+                        except api.APIError as exc:
+                            st.error(str(exc))
+            with bcols[3]:
+                if j["status"] == "applied":
+                    if st.button("↩ Not applied", key=f"undo_{j['id']}", width="stretch"):
+                        try:
+                            api.unmark_applied(j["id"]); st.rerun()
+                        except api.APIError as exc:
+                            st.error(str(exc))
+                elif st.button("✓ I applied", key=f"applied_{j['id']}", width="stretch",
+                               help="Record that you submitted this application"):
                     try:
-                        res = api.tailor_resume(j["id"], force_tailor=True)
-                        st.session_state[f"rv_{j['id']}"] = res.get("resume_version_id")
-                        if not res.get("compiled"):
-                            st.warning("Generated but PDF compile failed — check logs.")
+                        api.mark_applied(j["id"]); st.rerun()
                     except api.APIError as exc:
                         st.error(str(exc))
-        with b3:
-            if st.button("📎 Quick resume", key=f"quick_{j['id']}",
-                         help="Instant: compiles your base resume for this job",
-                         use_container_width=True):
-                with st.spinner("Compiling base resume…"):
+            with bcols[4]:
+                if j["status"] != "applied" and st.button("Skip", key=f"skip_{j['id']}",
+                                                           width="stretch", help="Hide this job"):
                     try:
-                        res = api.tailor_resume(j["id"], force_tailor=False)
-                        st.session_state[f"rv_{j['id']}"] = res.get("resume_version_id")
+                        api.set_job_status(j["id"], "skipped"); st.rerun()
                     except api.APIError as exc:
                         st.error(str(exc))
-        with b4:
-            if j["status"] == "applied":
-                if st.button("↩️ Undo", key=f"undo_{j['id']}", use_container_width=True):
-                    try:
-                        api.unmark_applied(j["id"])
-                        st.rerun()
-                    except api.APIError as exc:
-                        st.error(str(exc))
-            else:
-                if st.button("✅ Mark applied", key=f"applied_{j['id']}", use_container_width=True):
-                    try:
-                        api.mark_applied(j["id"])
-                        st.rerun()
-                    except api.APIError as exc:
-                        st.error(str(exc))
-        with b5:
-            if j["status"] != "applied" and st.button("⏭ Skip", key=f"skip_{j['id']}", use_container_width=True):
+
+            if details.get("matched_skills") or details.get("gaps"):
+                with st.expander("Why this score"):
+                    if details.get("matched_skills"):
+                        st.markdown("**You match:** " + ", ".join(details["matched_skills"][:12]))
+                    if details.get("gaps"):
+                        st.markdown("**Gaps to address:** " + ", ".join(details["gaps"][:8]))
+
+            rv_id = st.session_state.get(f"rv_{j['id']}")
+            if rv_id is None:
                 try:
-                    api.set_job_status(j["id"], "skipped")
-                    st.rerun()
-                except api.APIError as exc:
-                    st.error(str(exc))
+                    compiled = [v for v in api.list_job_resumes(j["id"]) if v.get("compiled")]
+                    if compiled:
+                        rv_id = compiled[0]["id"]
+                except api.APIError:
+                    rv_id = None
+            if rv_id:
+                try:
+                    pdf = api.resume_pdf_bytes(rv_id)
+                    st.download_button(
+                        "⬇ Download resume PDF", data=pdf,
+                        file_name=f"{(j['company'] or 'resume').replace(' ', '_')}_{j['id']}.pdf",
+                        mime="application/pdf", key=f"dl_{j['id']}_{rv_id}",
+                    )
+                except api.APIError:
+                    pass
 
-        # Offer the newest PDF for download (from this session's generation or history).
-        rv_id = st.session_state.get(f"rv_{j['id']}")
-        if rv_id is None:
-            try:
-                versions = api.list_job_resumes(j["id"])
-                compiled = [v for v in versions if v.get("compiled")]
-                if compiled:
-                    rv_id = compiled[0]["id"]
-            except api.APIError:
-                rv_id = None
-        if rv_id:
-            try:
-                pdf = api.resume_pdf_bytes(rv_id)
-                st.download_button(
-                    "⬇️ Download resume PDF",
-                    data=pdf,
-                    file_name=f"{(j['company'] or 'resume').replace(' ', '_')}_{j['id']}.pdf",
-                    mime="application/pdf",
-                    key=f"dl_{j['id']}_{rv_id}",
-                )
-            except api.APIError:
-                pass
+if len(jobs) > RENDER_CAP:
+    st.caption(f"Showing the top {RENDER_CAP}. Narrow with search or a higher minimum score.")
