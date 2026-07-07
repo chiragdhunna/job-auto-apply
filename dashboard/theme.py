@@ -32,6 +32,7 @@ the band label + number carry the meaning for anyone who can't distinguish hue.
 from __future__ import annotations
 
 import html
+import re
 from typing import Tuple
 
 import streamlit as st
@@ -95,9 +96,18 @@ def fit_band(score) -> Tuple[str, str]:
 # CSS injection                                                                #
 # --------------------------------------------------------------------------- #
 def inject_theme() -> None:
-    """Inject fonts + the global stylesheet. Call once at the top of each page."""
-    st.markdown(
-        f"""
+    """Inject fonts + the global stylesheet. Call once at the top of each page.
+
+    Two rendering landmines handled here (learned the hard way):
+    * Markdown parsers TERMINATE a raw-HTML block at the first blank line —
+      any blank line inside <style> spills the rest of the CSS as visible
+      page text. We strip all blank lines and prefer st.html(), which
+      bypasses markdown entirely.
+    * A blanket sidebar font override breaks Streamlit's Material Symbols
+      icon font (icons are ligatures -> render as literal text like
+      "keyboard_double_arrow_left"). Fonts are scoped + icons re-exempted.
+    """
+    payload = f"""
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -110,7 +120,13 @@ def inject_theme() -> None:
 .stApp {{ background:{BG}; color:{TEXT}; font-family:{FONT_BODY}; }}
 [data-testid="stHeader"] {{ background:transparent; }}
 [data-testid="stSidebar"] {{ background:{SURFACE}; border-right:1px solid {BORDER}; }}
-[data-testid="stSidebar"] * {{ font-family:{FONT_BODY}; }}
+/* Scope fonts to TEXT elements only — a blanket * override would break
+   Streamlit's Material Symbols icon font (ligature icons become text). */
+[data-testid="stSidebar"] [data-testid="stSidebarNavLink"] span,
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+[data-testid="stSidebar"] p, [data-testid="stSidebar"] label {{ font-family:{FONT_BODY}; }}
+[data-testid="stIconMaterial"], [class*="material-symbols"] {{
+  font-family:'Material Symbols Rounded' !important; }}
 
 h1,h2,h3,h4 {{ font-family:{FONT_DISPLAY} !important; color:{TEXT}; letter-spacing:-0.01em; }}
 h1 {{ font-weight:700; }}
@@ -165,9 +181,15 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{ border-radius:12px; }}
 .ja-reason {{ color:{MUTED}; font-size:.9rem; }}
 .ja-eyebrow {{ font-family:{FONT_MONO}; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:{ACCENT}; }}
 </style>
-""",
-        unsafe_allow_html=True,
-    )
+"""
+    # CRITICAL: no blank lines may survive inside the payload (markdown ends a
+    # raw-HTML block at a blank line and dumps the rest as visible text).
+    payload = re.sub(r"\n\s*\n+", "\n", payload).strip()
+    if hasattr(st, "html"):
+        # st.html bypasses markdown parsing entirely — the robust path.
+        st.html(payload)
+    else:  # very old Streamlit fallback
+        st.markdown(payload, unsafe_allow_html=True)
 
 
 def score_chip(score) -> str:
