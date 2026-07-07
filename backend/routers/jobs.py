@@ -87,9 +87,11 @@ def scrape_now(db: Session = Depends(get_db)) -> Dict[str, Any]:
     """Scrape ATS boards + web-wide job boards now."""
     from backend.scrapers.web_boards_scraper import run_web_scrape
 
-    toggles = effective_settings(db)["platform_toggles"]
-    summary = run_ats_scrape(db, platform_toggles=toggles)
-    summary.update(run_web_scrape(db, platform_toggles=toggles))
+    settings = effective_settings(db)
+    toggles = settings["platform_toggles"]
+    source_toggles = settings.get("source_toggles", {})
+    summary = run_ats_scrape(db, platform_toggles={**toggles, **source_toggles})
+    summary.update(run_web_scrape(db, source_toggles=source_toggles))
     return {"summary": summary}
 
 

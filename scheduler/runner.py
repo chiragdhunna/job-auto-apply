@@ -80,14 +80,19 @@ def run_pipeline_cycle(db=None) -> Dict[str, Any]:
     try:
         settings = effective_settings(db)
         toggles = settings.get("platform_toggles", {})
-        logger.info("=== Pipeline cycle start (toggles=%s, threshold=%s) ===",
-                    toggles, settings.get("score_threshold"))
+        source_toggles = settings.get("source_toggles", {})
+        logger.info("=== Pipeline cycle start (platforms=%s, sources=%s, threshold=%s) ===",
+                    toggles, source_toggles, settings.get("score_threshold"))
 
-        # 1) Scrape ATS boards (respects toggles per source).
-        _stage(summary, "scrape", lambda: run_ats_scrape(db, platform_toggles=toggles))
+        # ATS gating uses platform toggles (greenhouse/lever/...) AND source
+        # toggles (smartrecruiters/recruitee) — merge so scraper.source resolves.
+        ats_toggles = {**toggles, **source_toggles}
 
-        # 2) Scrape web-wide public job boards.
-        _stage(summary, "web", lambda: run_web_scrape(db, platform_toggles=toggles))
+        # 1) Scrape ATS boards (Greenhouse/Lever/Ashby/Workday/SmartRecruiters/Recruitee).
+        _stage(summary, "scrape", lambda: run_ats_scrape(db, platform_toggles=ats_toggles))
+
+        # 2) Scrape web-wide public job boards (per-source toggles).
+        _stage(summary, "web", lambda: run_web_scrape(db, source_toggles=source_toggles))
 
         # 3) Discover on LinkedIn / Indeed (browser session, no applying).
         if toggles.get(JobSource.LINKEDIN):

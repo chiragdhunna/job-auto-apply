@@ -27,9 +27,18 @@ platforms:
   greenhouse: true
   lever: true
   workday: true
-  # Web-wide public job APIs: Remotive, RemoteOK, Arbeitnow, The Muse (+ Adzuna
-  # if ADZUNA_APP_ID/KEY are set in .env). No browser, no login, low risk.
-  web_boards: true
+
+# Independently-toggleable discovery sources (parallel to platforms above).
+# Web-wide public APIs + extra company-ATS platforms added in Phase 2.
+sources:
+  remotive: true
+  remoteok: true
+  arbeitnow: true
+  jobicy: true
+  themuse: true
+  adzuna: true            # needs ADZUNA_APP_ID / ADZUNA_APP_KEY in .env
+  smartrecruiters: true
+  recruitee: true
 
 # How often the scheduler runs the full pipeline (minutes).
 run_interval_minutes: 60
@@ -51,5 +60,20 @@ ats_companies:
     - "ramp"
     - "notion"
     - "openai"
+  # SmartRecruiters company IDs (the {company} in api.smartrecruiters.com/.../{company}/postings)
+  smartrecruiters:
+    - "Devoteam"
+    - "ServiceNow"
+    - "Visa"
+  # Recruitee subdomains ({company} in {company}.recruitee.com). Most boards are
+  # private; replace with your real targets. "sendcloud" is a public example.
+  recruitee:
+    - "sendcloud"
+  # Workday is tenant-specific — no generic slug works. To scrape one, supply its
+  # CxS endpoint (open the company's Workday careers site, watch the network tab
+  # for a POST to /wday/cxs/.../jobs) as objects, e.g.:
+  #   - name: "Company"
+  #     cxs_url: "https://company.wdN.myworkdayjobs.com/wday/cxs/company/SITE/jobs"
+  #     site_url: "https://company.wdN.myworkdayjobs.com/en-US/SITE"
   workday: []
 

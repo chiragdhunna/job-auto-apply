@@ -25,6 +25,7 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 class SettingsUpdate(BaseModel):
     score_threshold: Optional[int] = Field(default=None, ge=0, le=100)
     platform_toggles: Optional[Dict[str, bool]] = None
+    source_toggles: Optional[Dict[str, bool]] = None
     run_interval_minutes: Optional[int] = Field(default=None, ge=1)
 
 
@@ -33,9 +34,13 @@ def effective_settings(db: Session) -> Dict[str, Any]:
     toggles = crud.get_setting(db, "platform_toggles", defaults["platform_toggles"])
     # Merge so newly-added platforms always appear even if the stored value is old.
     merged_toggles = {**config.DEFAULT_PLATFORM_TOGGLES, **(toggles or {})}
+    src_defaults = config.source_defaults()
+    src_toggles = crud.get_setting(db, "source_toggles", src_defaults)
+    merged_sources = {**config.DEFAULT_SOURCE_TOGGLES, **src_defaults, **(src_toggles or {})}
     return {
         "score_threshold": crud.get_setting(db, "score_threshold", defaults["score_threshold"]),
         "platform_toggles": merged_toggles,
+        "source_toggles": merged_sources,
         "run_interval_minutes": crud.get_setting(
             db, "run_interval_minutes", defaults["run_interval_minutes"]
         ),
@@ -110,6 +115,10 @@ def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db)) -> D
         current = effective_settings(db)["platform_toggles"]
         current.update(payload.platform_toggles)
         crud.set_setting(db, "platform_toggles", current)
+    if payload.source_toggles is not None:
+        current = effective_settings(db)["source_toggles"]
+        current.update(payload.source_toggles)
+        crud.set_setting(db, "source_toggles", current)
     if payload.run_interval_minutes is not None:
         crud.set_setting(db, "run_interval_minutes", payload.run_interval_minutes)
     db.commit()
