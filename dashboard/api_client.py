@@ -66,7 +66,7 @@ def clear_data(delete_resume_files: bool = True, include_settings: bool = False)
 
 # -- jobs ------------------------------------------------------------------- #
 def list_jobs(status: Optional[str] = None, source: Optional[str] = None, limit: int = 500) -> List[Dict[str, Any]]:
-    params: Dict[str, Any] = {"limit": limit}
+    params: Dict[str, Any] = {"limit": min(int(limit), 5000)}  # keep within the API's cap
     if status:
         params["status"] = status
     if source:

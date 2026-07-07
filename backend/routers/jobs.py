@@ -70,7 +70,7 @@ class AnswersRequest(BaseModel):
 def list_jobs(
     status: Optional[str] = Query(default=None),
     source: Optional[str] = Query(default=None),
-    limit: int = Query(default=200, ge=1, le=1000),
+    limit: int = Query(default=200, ge=1, le=5000),
     db: Session = Depends(get_db),
 ) -> List[Dict[str, Any]]:
     jobs = crud.list_jobs(
