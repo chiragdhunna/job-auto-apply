@@ -124,9 +124,22 @@ DEFAULT_PLATFORM_TOGGLES: Dict[str, bool] = {
     "web_boards": True,
 }
 
+# Independently-toggleable discovery sources (parallel to platform toggles).
+# These gate the web-board + extra-ATS scrapers added in Phase 2.
+DEFAULT_SOURCE_TOGGLES: Dict[str, bool] = {
+    "remotive": True,
+    "remoteok": True,
+    "arbeitnow": True,
+    "jobicy": True,
+    "themuse": True,
+    "adzuna": True,
+    "smartrecruiters": True,
+    "recruitee": True,
+}
+
 # Keys that are runtime-tunable and therefore stored in the settings table
 # (overriding the keywords.yaml defaults when set).
-RUNTIME_SETTING_KEYS = ("score_threshold", "platform_toggles", "run_interval_minutes")
+RUNTIME_SETTING_KEYS = ("score_threshold", "platform_toggles", "source_toggles", "run_interval_minutes")
 
 _VALID_PROVIDERS = ("auto", "gemini", "ollama")
 
@@ -186,6 +199,12 @@ def keywords_defaults() -> Dict[str, Any]:
         "platform_toggles": toggles,
         "run_interval_minutes": kw.get("run_interval_minutes", 60),
     }
+
+
+def source_defaults() -> Dict[str, bool]:
+    """Effective source toggles: DEFAULT_SOURCE_TOGGLES merged with keywords.yaml `sources`."""
+    sources = load_keywords().get("sources") or {}
+    return {**DEFAULT_SOURCE_TOGGLES, **{k: bool(v) for k, v in sources.items()}}
 
 
 def active_provider_name() -> str:

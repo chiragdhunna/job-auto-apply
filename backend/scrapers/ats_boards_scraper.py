@@ -259,6 +259,99 @@ class WorkdayScraper(BaseScraper):
         return out
 
 
+class SmartRecruitersScraper(_CompanyListScraper):
+    """SmartRecruiters public postings API.
+
+    List:   https://api.smartrecruiters.com/v1/companies/{company}/postings
+    Detail: each posting's `ref` URL -> applyUrl + jobAd.sections.jobDescription
+
+    To bound detail calls we filter on title FIRST, then fetch detail only for
+    the matches (for description + a real apply URL).
+    """
+
+    source = "smartrecruiters"
+    LIST_URL = "https://api.smartrecruiters.com/v1/companies/{company}/postings"
+
+    def _location_str(self, loc: Optional[Dict]) -> Optional[str]:
+        if not isinstance(loc, dict):
+            return None
+        if loc.get("fullLocation"):
+            return loc["fullLocation"]
+        parts = [loc.get("city"), loc.get("region"), loc.get("country")]
+        s = ", ".join(p for p in parts if p)
+        if loc.get("remote"):
+            s = f"{s} (Remote)" if s else "Remote"
+        return s or None
+
+    def _scrape_company(self, slug: str) -> List[ScrapedJob]:
+        data = self._get_json(self.LIST_URL.format(company=slug) + "?limit=100")
+        if not data:
+            return []
+        company_display = _slug_to_name(slug)
+        out: List[ScrapedJob] = []
+        for p in data.get("content", []) or []:
+            title = p.get("name") or ""
+            if not title_matches_roles(title, self.roles):
+                continue
+            company = (p.get("company") or {}).get("name") or company_display
+            if self._excluded(company):
+                continue
+            location = self._location_str(p.get("location"))
+            url = ""
+            description = None
+            ref = p.get("ref")
+            if ref:
+                detail = self._get_json(ref)
+                if detail:
+                    url = detail.get("applyUrl") or detail.get("postingUrl") or ""
+                    sections = (detail.get("jobAd") or {}).get("sections") or {}
+                    description = (sections.get("jobDescription") or {}).get("text")
+            out.append(ScrapedJob(
+                source=self.source,
+                external_id=str(p.get("id")) if p.get("id") else None,
+                title=title, company=company, url=url, location=location,
+                description_raw=strip_html(description),
+            ))
+        return out
+
+
+class RecruiteeScraper(_CompanyListScraper):
+    """Recruitee public offers API: https://{company}.recruitee.com/api/offers/
+
+    Descriptions are included in the list response — no per-posting detail call.
+    """
+
+    source = "recruitee"
+    URL = "https://{company}.recruitee.com/api/offers/"
+
+    def _scrape_company(self, slug: str) -> List[ScrapedJob]:
+        data = self._get_json(self.URL.format(company=slug))
+        if not data:
+            return []
+        company_display = _slug_to_name(slug)
+        out: List[ScrapedJob] = []
+        for o in data.get("offers", []) or []:
+            title = o.get("title") or ""
+            if not title_matches_roles(title, self.roles):
+                continue
+            company = o.get("company_name") or company_display
+            if self._excluded(company):
+                continue
+            location = o.get("location") or ", ".join(
+                p for p in (o.get("city"), o.get("country")) if p
+            ) or None
+            out.append(ScrapedJob(
+                source=self.source,
+                external_id=str(o.get("id")) if o.get("id") else None,
+                title=title, company=company,
+                url=o.get("careers_url") or o.get("careers_apply_url") or "",
+                location=location,
+                description_raw=strip_html(o.get("description")),
+                salary_range=(o.get("salary") or None) if isinstance(o.get("salary"), str) else None,
+            ))
+        return out
+
+
 def _ashby_salary(comp) -> Optional[str]:
     """Extract a human-readable salary summary from Ashby's compensation object."""
     if not isinstance(comp, dict):
@@ -291,6 +384,10 @@ def build_scrapers(
         scrapers.append(AshbyScraper(companies["ashby"], roles, exclude))
     if companies.get("workday"):
         scrapers.append(WorkdayScraper(companies["workday"], roles, exclude))
+    if companies.get("smartrecruiters"):
+        scrapers.append(SmartRecruitersScraper(companies["smartrecruiters"], roles, exclude))
+    if companies.get("recruitee"):
+        scrapers.append(RecruiteeScraper(companies["recruitee"], roles, exclude))
     return scrapers
 
 
