@@ -84,9 +84,96 @@ def list_jobs(
 
 @router.post("/scrape")
 def scrape_now(db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Scrape ATS boards + web-wide job boards now."""
+    from backend.scrapers.web_boards_scraper import run_web_scrape
+
     toggles = effective_settings(db)["platform_toggles"]
     summary = run_ats_scrape(db, platform_toggles=toggles)
+    summary.update(run_web_scrape(db, platform_toggles=toggles))
     return {"summary": summary}
+
+
+@router.get("/recommended")
+def recommended_jobs(
+    min_score: Optional[float] = Query(default=None, ge=0, le=100),
+    include_done: bool = Query(default=False, description="Include applied/skipped jobs"),
+    source: Optional[str] = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=1000),
+    db: Session = Depends(get_db),
+) -> List[Dict[str, Any]]:
+    """Scored jobs, best fit first — the jobs worth applying to next.
+
+    A job is flagged `recommended` when its score meets the threshold.
+    """
+    threshold = float(effective_settings(db)["score_threshold"])
+    jobs = crud.list_jobs(db, sources=[source] if source else None, limit=2000)
+    out = []
+    for j in jobs:
+        if j.fit_score is None:
+            continue
+        if not include_done and j.status in (JobStatus.APPLIED, JobStatus.SKIPPED, JobStatus.FAILED):
+            continue
+        if min_score is not None and j.fit_score < min_score:
+            continue
+        d = job_to_dict(j)
+        d["recommended"] = j.fit_score >= threshold
+        out.append(d)
+    out.sort(key=lambda d: (-(d["fit_score"] or 0), d["company"] or ""))
+    return out[:limit]
+
+
+class MarkAppliedRequest(BaseModel):
+    note: Optional[str] = None
+
+
+@router.post("/{job_id}/mark-applied")
+def mark_applied(
+    job_id: int,
+    payload: MarkAppliedRequest = Body(default=None),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Record that the owner applied to this job manually."""
+    job = crud.get_job(db, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    payload = payload or MarkAppliedRequest()
+    rv = crud.latest_resume_version(db, job_id)
+    notes = "Marked applied manually by owner"
+    if payload.note:
+        notes += f": {payload.note}"
+    crud.create_application(
+        db,
+        job_id=job_id,
+        resume_version_id=(rv.id if rv else None),
+        status="submitted",
+        platform_response_notes=notes,
+    )
+    crud.set_job_status(db, job, JobStatus.APPLIED)
+    db.commit()
+    return job_to_dict(job)
+
+
+@router.post("/{job_id}/unmark-applied")
+def unmark_applied(job_id: int, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Undo an accidental mark-applied: delete the manual record, restore status."""
+    from backend.db.models import Application
+
+    job = crud.get_job(db, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    removed = 0
+    for app in list(job.applications):
+        if app.platform_response_notes and app.platform_response_notes.startswith(
+            "Marked applied manually"
+        ):
+            db.delete(app)
+            removed += 1
+    new_status = JobStatus.SCORED if job.fit_score is not None else JobStatus.NEW
+    crud.set_job_status(db, job, new_status)
+    db.commit()
+    data = job_to_dict(job)
+    data["removed_manual_records"] = removed
+    return data
 
 
 @router.post("/score")
@@ -123,13 +210,17 @@ def get_resume_version(rv_id: int, db: Session = Depends(get_db)) -> Dict[str, A
 
 
 @router.post("/{job_id}/resume")
-def generate_resume_for_job(job_id: int, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def generate_resume_for_job(
+    job_id: int,
+    force_tailor: bool = Query(default=False, description="Bypass RESUME_MODE=base_only and tailor via LLM"),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
     """Generate (and compile, if a LaTeX engine is installed) a tailored resume."""
     job = crud.get_job(db, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     try:
-        rv = tailor_and_store(db, job)
+        rv = tailor_and_store(db, job, force_tailor=force_tailor)
     except LLMError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {

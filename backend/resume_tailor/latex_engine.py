@@ -335,6 +335,7 @@ def tailor_and_store(
     db: Session,
     job: Job,
     base_resume_data: Optional[Dict[str, Any]] = None,
+    force_tailor: bool = False,
 ) -> ResumeVersion:
     """Generate + compile a tailored resume and record a resume_versions row.
 
@@ -342,13 +343,16 @@ def tailor_and_store(
     base-resume fallback. The .tex actually used is always stored; if nothing
     compiles (e.g. no LaTeX engine installed) the row is created with
     pdf_path=None so the owner can inspect/fix from the dashboard.
+
+    ``force_tailor=True`` bypasses RESUME_MODE=base_only — used by the
+    dashboard's on-demand "tailor resume for this job" button.
     """
     if base_resume_data is None:
         base_resume_data = config.load_base_resume_data()
 
     # Deterministic mode: skip LLM tailoring entirely, always attach the
     # compiled base resume. Fast, reliable, zero LLM calls.
-    if config.RESUME_MODE == "base_only":
+    if config.RESUME_MODE == "base_only" and not force_tailor:
         base_tex = _fallback_base_resume_tex()
         if base_tex:
             pdf_bytes = None
