@@ -92,3 +92,32 @@ if c2.button("🧮 Score new jobs", use_container_width=True):
 
 st.caption("Note: target roles, locations and target companies live in "
            "`config/keywords.yaml` (edit that file and restart).")
+
+st.divider()
+
+# --- Danger zone ------------------------------------------------------------ #
+with st.expander("🗑️ Danger zone — clear the database"):
+    st.warning(
+        "This permanently deletes **all discovered jobs, your applied history, "
+        "and all resume versions**. The next scheduler cycle starts discovery "
+        "from scratch. This cannot be undone."
+    )
+    del_files = st.checkbox("Also delete the generated resume PDF files (data/resumes/)", value=True)
+    reset_settings = st.checkbox(
+        "Also reset these settings (threshold / toggles / interval) to keywords.yaml defaults",
+        value=False,
+    )
+    confirm_text = st.text_input('Type DELETE to confirm', key="clear_confirm")
+    if st.button("🗑️ Clear database now", type="primary", disabled=(confirm_text != "DELETE")):
+        try:
+            result = api.clear_data(delete_resume_files=del_files, include_settings=reset_settings)
+            st.success(
+                f"Cleared: {result.get('jobs', 0)} jobs, "
+                f"{result.get('applications', 0)} applications, "
+                f"{result.get('resume_versions', 0)} resume versions, "
+                f"{result.get('resume_files', 0)} PDF files"
+                + (f", {result.get('settings', 0)} settings" if reset_settings else "")
+                + ". Fresh start!"
+            )
+        except api.APIError as exc:
+            st.error(str(exc))

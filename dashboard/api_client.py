@@ -56,6 +56,14 @@ def update_settings(payload: Dict[str, Any]) -> Dict[str, Any]:
     return _req("PUT", "/settings", json=payload)
 
 
+def clear_data(delete_resume_files: bool = True, include_settings: bool = False) -> Dict[str, Any]:
+    return _req("POST", "/settings/clear-data", json={
+        "delete_resume_files": delete_resume_files,
+        "include_settings": include_settings,
+        "confirm": "DELETE",
+    })
+
+
 # -- jobs ------------------------------------------------------------------- #
 def list_jobs(status: Optional[str] = None, source: Optional[str] = None, limit: int = 500) -> List[Dict[str, Any]]:
     params: Dict[str, Any] = {"limit": limit}

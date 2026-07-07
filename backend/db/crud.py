@@ -181,3 +181,31 @@ def get_all_settings(db: Session, keys: Iterable[str] | None = None) -> dict[str
     if keys is not None:
         stmt = stmt.where(Setting.key.in_(list(keys)))
     return {s.key: get_setting(db, s.key) for s in db.scalars(stmt).all()}
+
+
+# --------------------------------------------------------------------------- #
+# Danger zone                                                                  #
+# --------------------------------------------------------------------------- #
+def clear_all_data(db: Session, *, include_settings: bool = False) -> dict[str, int]:
+    """Delete all jobs, applications, and resume versions (FK-safe order).
+
+    Settings (threshold / toggles / interval) survive unless include_settings.
+    Returns per-table deletion counts. Callers handle any on-disk PDF cleanup.
+    """
+    from sqlalchemy import delete, func
+
+    counts = {
+        "applications": db.scalar(select(func.count()).select_from(Application)) or 0,
+        "resume_versions": db.scalar(select(func.count()).select_from(ResumeVersion)) or 0,
+        "jobs": db.scalar(select(func.count()).select_from(Job)) or 0,
+        "settings": 0,
+    }
+    # Children first — SQLite doesn't enforce FK cascades on bulk deletes.
+    db.execute(delete(Application))
+    db.execute(delete(ResumeVersion))
+    db.execute(delete(Job))
+    if include_settings:
+        counts["settings"] = db.scalar(select(func.count()).select_from(Setting)) or 0
+        db.execute(delete(Setting))
+    db.commit()
+    return counts

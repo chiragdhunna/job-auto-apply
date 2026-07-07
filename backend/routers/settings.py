@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -52,6 +52,41 @@ def _with_provider(db: Session) -> Dict[str, Any]:
 @router.get("")
 def get_settings(db: Session = Depends(get_db)) -> Dict[str, Any]:
     return _with_provider(db)
+
+
+class ClearDataRequest(BaseModel):
+    delete_resume_files: bool = True
+    include_settings: bool = False
+    confirm: str = ""
+
+
+@router.post("/clear-data")
+def clear_data(payload: ClearDataRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """DANGER: wipe all jobs, applications, and resume versions.
+
+    Requires confirm == "DELETE". Settings survive unless include_settings.
+    Optionally removes the generated PDF files in data/resumes/.
+    """
+    if payload.confirm != "DELETE":
+        raise HTTPException(
+            status_code=400, detail='Confirmation required: pass {"confirm": "DELETE"}.'
+        )
+    counts = crud.clear_all_data(db, include_settings=payload.include_settings)
+
+    files_deleted = 0
+    if payload.delete_resume_files:
+        from backend.resume_tailor.latex_engine import RESUME_DIR
+
+        if RESUME_DIR.exists():
+            for f in RESUME_DIR.iterdir():
+                if f.is_file():
+                    try:
+                        f.unlink()
+                        files_deleted += 1
+                    except OSError:
+                        pass
+    counts["resume_files"] = files_deleted
+    return {"cleared": True, **counts}
 
 
 @router.get("/llm-status")
