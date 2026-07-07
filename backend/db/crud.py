@@ -18,6 +18,8 @@ from backend.db.models import (
     ApplicationStatus,
     Job,
     JobStatus,
+    OutreachContact,
+    OutreachDraft,
     ResumeVersion,
     Setting,
 )
@@ -152,6 +154,67 @@ def list_applications(db: Session) -> list[Application]:
 
 
 # --------------------------------------------------------------------------- #
+# Outreach (DRAFT-ONLY: rows here are never acted on automatically)            #
+# --------------------------------------------------------------------------- #
+def get_outreach_contact(db: Session, job_id: int) -> OutreachContact | None:
+    return db.scalar(
+        select(OutreachContact).where(OutreachContact.job_id == job_id)
+        .order_by(OutreachContact.found_at.desc()).limit(1)
+    )
+
+
+def upsert_outreach_contact(db: Session, job_id: int, **fields: Any) -> OutreachContact:
+    contact = get_outreach_contact(db, job_id)
+    if contact is None:
+        contact = OutreachContact(job_id=job_id, **fields)
+        db.add(contact)
+    else:
+        for k, v in fields.items():
+            setattr(contact, k, v)
+        db.add(contact)
+    db.flush()
+    return contact
+
+
+def list_outreach_drafts(db: Session, job_id: int) -> list[OutreachDraft]:
+    return list(db.scalars(
+        select(OutreachDraft).where(OutreachDraft.job_id == job_id)
+        .order_by(OutreachDraft.generated_at.desc())
+    ).all())
+
+
+def create_outreach_draft(
+    db: Session, *, job_id: int, contact_id: int | None, channel: str,
+    draft_text: str, subject: str | None = None, status: str = "draft",
+) -> OutreachDraft:
+    draft = OutreachDraft(
+        job_id=job_id, contact_id=contact_id, channel=channel,
+        draft_text=draft_text, subject=subject, status=status,
+    )
+    db.add(draft)
+    db.flush()
+    return draft
+
+
+def jobs_with_outreach_state(db: Session, statuses: list[str]) -> list[dict]:
+    """Overview rows for the dashboard: jobs + whether contact/drafts exist."""
+    jobs = list_jobs(db, statuses=statuses, limit=1000)
+    out = []
+    for j in jobs:
+        contact = get_outreach_contact(db, j.id)
+        drafts = list_outreach_drafts(db, j.id)
+        out.append({
+            "job_id": j.id, "title": j.title, "company": j.company,
+            "job_status": j.status, "fit_score": j.fit_score, "url": j.url,
+            "contact_found": bool(contact and contact.name),
+            "contact_confidence": contact.confidence if contact else None,
+            "drafts": len(drafts),
+            "draft_statuses": sorted({d.status for d in drafts}),
+        })
+    return out
+
+
+# --------------------------------------------------------------------------- #
 # Settings (key -> JSON-encoded value)                                         #
 # --------------------------------------------------------------------------- #
 def get_setting(db: Session, key: str, default: Any = None) -> Any:
@@ -197,10 +260,14 @@ def clear_all_data(db: Session, *, include_settings: bool = False) -> dict[str, 
     counts = {
         "applications": db.scalar(select(func.count()).select_from(Application)) or 0,
         "resume_versions": db.scalar(select(func.count()).select_from(ResumeVersion)) or 0,
+        "outreach_drafts": db.scalar(select(func.count()).select_from(OutreachDraft)) or 0,
+        "outreach_contacts": db.scalar(select(func.count()).select_from(OutreachContact)) or 0,
         "jobs": db.scalar(select(func.count()).select_from(Job)) or 0,
         "settings": 0,
     }
     # Children first — SQLite doesn't enforce FK cascades on bulk deletes.
+    db.execute(delete(OutreachDraft))
+    db.execute(delete(OutreachContact))
     db.execute(delete(Application))
     db.execute(delete(ResumeVersion))
     db.execute(delete(Job))

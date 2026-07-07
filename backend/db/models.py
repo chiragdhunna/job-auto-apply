@@ -154,3 +154,53 @@ class Setting(Base):
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Setting {self.key}={self.value!r}>"
+
+
+class OutreachContact(Base):
+    """Likely recruiter / hiring manager identified for a job.
+
+    confidence "none" + source "not_found" is a legitimate, honest state — the
+    finder NEVER fabricates names. DRAFT-ONLY feature: nothing here is ever
+    contacted automatically.
+    """
+
+    __tablename__ = "outreach_contacts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), index=True)
+    name: Mapped[Optional[str]] = mapped_column(String(255), default=None)
+    title: Mapped[Optional[str]] = mapped_column(String(255), default=None)
+    linkedin_url: Mapped[Optional[str]] = mapped_column(Text, default=None)
+    email: Mapped[Optional[str]] = mapped_column(String(320), default=None)
+    # jd_text / company_page / linkedin_connector / manual / not_found
+    source: Mapped[str] = mapped_column(String(32), default="not_found")
+    confidence: Mapped[str] = mapped_column(String(16), default="none")  # high/medium/low/none
+    found_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<OutreachContact {self.id} job={self.job_id} {self.name!r} ({self.confidence})>"
+
+
+class OutreachDraft(Base):
+    """A drafted outreach message. NEVER sent by the system — the owner sends
+    manually; `status`/`sent_at` are bookkeeping the owner updates via the
+    dashboard after sending it themselves.
+    """
+
+    __tablename__ = "outreach_drafts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), index=True)
+    contact_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("outreach_contacts.id", ondelete="SET NULL"), default=None
+    )
+    channel: Mapped[str] = mapped_column(String(32))  # linkedin_message / email
+    draft_text: Mapped[str] = mapped_column(Text)
+    subject: Mapped[Optional[str]] = mapped_column(String(255), default=None)  # email only
+    generated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
+    # draft / needs_owner_input / edited / sent / skipped
+    status: Mapped[str] = mapped_column(String(32), default="draft", index=True)
+    sent_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime, default=None)
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<OutreachDraft {self.id} job={self.job_id} {self.channel} [{self.status}]>"
