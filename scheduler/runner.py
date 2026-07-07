@@ -1,13 +1,14 @@
-"""End-to-end scheduler loop.
+"""End-to-end scheduler loop — DISCOVER and SCORE (the owner applies).
 
 Every ``run_interval_minutes`` (read live from the settings table so dashboard
-changes take effect) it runs the full pipeline:
+changes take effect) it runs:
 
-    scrape (ATS boards) -> score new jobs -> apply (ATS / LinkedIn / Indeed)
+    scrape ATS boards -> scrape web-wide boards -> discover on LinkedIn/Indeed
+    (browser, if toggled + logged in) -> score everything new
 
-Resume tailoring + answer generation happen inside the appliers, just before a
-submission. Everything respects the platform toggles and score threshold set in
-the dashboard. Each cycle's summary is logged to the console and logs/scheduler.log.
+Jobs scoring at/above the threshold surface as ⭐ Recommended in the dashboard,
+where the owner opens the posting, downloads a tailored resume, applies, and
+ticks it off. Nothing is auto-submitted.
 
 Run standalone:
     python -m scheduler.runner            # blocking loop (used by run.sh)
@@ -30,6 +31,7 @@ from backend.db.session import SessionLocal, init_db
 from backend.routers.settings import effective_settings
 from backend.scoring.gemini_scorer import score_new_jobs
 from backend.scrapers.ats_boards_scraper import run_ats_scrape
+from backend.scrapers.web_boards_scraper import run_web_scrape
 
 logger = logging.getLogger("job_auto_apply.scheduler")
 
@@ -84,24 +86,19 @@ def run_pipeline_cycle(db=None) -> Dict[str, Any]:
         # 1) Scrape ATS boards (respects toggles per source).
         _stage(summary, "scrape", lambda: run_ats_scrape(db, platform_toggles=toggles))
 
-        # 2) Score all new jobs.
-        _stage(summary, "score", lambda: score_new_jobs(db))
+        # 2) Scrape web-wide public job boards.
+        _stage(summary, "web", lambda: run_web_scrape(db, platform_toggles=toggles))
 
-        # 3) Apply — Greenhouse/Lever via public forms.
-        ats_sources = [s for s in (JobSource.GREENHOUSE, JobSource.LEVER) if toggles.get(s, True)]
-        if ats_sources:
-            from automation.ats_apply import run_ats_applications
-            _stage(summary, "ats_apply", lambda: run_ats_applications(db, sources=ats_sources))
-
-        # 4) Apply — LinkedIn Easy Apply.
+        # 3) Discover on LinkedIn / Indeed (browser session, no applying).
         if toggles.get(JobSource.LINKEDIN):
-            from automation.linkedin_apply import run_linkedin_easy_apply
-            _stage(summary, "linkedin", lambda: run_linkedin_easy_apply(db))
-
-        # 5) Apply — Indeed.
+            from automation.linkedin_apply import discover_jobs as discover_linkedin
+            _stage(summary, "linkedin_discover", lambda: discover_linkedin(db))
         if toggles.get(JobSource.INDEED):
-            from automation.indeed_apply import run_indeed_applications
-            _stage(summary, "indeed", lambda: run_indeed_applications(db))
+            from automation.indeed_apply import discover_jobs as discover_indeed
+            _stage(summary, "indeed_discover", lambda: discover_indeed(db))
+
+        # 4) Score everything new — high scorers become ⭐ Recommended.
+        _stage(summary, "score", lambda: score_new_jobs(db))
 
         logger.info("=== Pipeline cycle summary === %s", _condense(summary))
     finally:
@@ -111,23 +108,27 @@ def run_pipeline_cycle(db=None) -> Dict[str, Any]:
 
 
 def _condense(summary: Dict[str, Any]) -> Dict[str, Any]:
-    """A compact one-line-ish view: totals found / scored / submitted / failed."""
-    scrape = summary.get("scrape", {})
-    found = sum(v.get("found", 0) for v in scrape.values() if isinstance(v, dict))
+    """Compact view: jobs found across sources, newly stored, scored, recommended."""
+    found = 0
+    new = 0
+    for stage_key in ("scrape", "web"):
+        stage = summary.get(stage_key)
+        if isinstance(stage, dict):
+            for v in stage.values():
+                if isinstance(v, dict):
+                    found += v.get("found", 0)
+                    new += v.get("new", 0)
+    for stage_key in ("linkedin_discover", "indeed_discover"):
+        stage = summary.get(stage_key)
+        if isinstance(stage, dict):
+            found += stage.get("discovered", 0)
+            new += stage.get("new", 0)
     score = summary.get("score", {}) if isinstance(summary.get("score"), dict) else {}
-    submitted = 0
-    failed = 0
-    for key in ("ats_apply", "linkedin", "indeed"):
-        s = summary.get(key)
-        if isinstance(s, dict):
-            submitted += s.get("submitted", 0)
-            failed += s.get("failed", 0)
     return {
         "jobs_found": found,
+        "new_jobs": new,
         "scored": score.get("scored", 0),
-        "queued": score.get("queued", 0),
-        "submitted": submitted,
-        "failed": failed,
+        "recommended": score.get("queued", 0),
     }
 
 

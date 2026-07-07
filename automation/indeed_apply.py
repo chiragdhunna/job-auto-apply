@@ -262,7 +262,52 @@ def indeed_apply_flow(page, job, resume_path, base_resume_data, applicant, dry_r
 
 
 # --------------------------------------------------------------------------- #
-# Run                                                                          #
+# Discovery only (no applying) — used by the recommendation pipeline           #
+# --------------------------------------------------------------------------- #
+def discover_jobs(db: Session, max_jobs: int = 30) -> Dict[str, Any]:
+    """Search Indeed for the target roles and store postings as `new`."""
+    setup_automation_logging()
+    from playwright.sync_api import sync_playwright
+
+    roles = config.target_roles()
+    locations = config.target_locations() or [""]
+    summary: Dict[str, Any] = {"discovered": 0, "new": 0}
+
+    with sync_playwright() as p:
+        context = launch_persistent_context(p, headless=False)
+        page = context.new_page()
+        try:
+            if not _is_logged_in(page):
+                raise IndeedAuthError(
+                    "Not logged in to Indeed. Run `python -m automation.indeed_apply --login` "
+                    "and sign in once; the session will persist."
+                )
+            for role in roles:
+                if summary["discovered"] >= max_jobs:
+                    break
+                for location in locations:
+                    if summary["discovered"] >= max_jobs:
+                        break
+                    for url in _collect_job_urls(page, role, location, limit=10):
+                        if summary["discovered"] >= max_jobs:
+                            break
+                        data = _read_job(page, url)
+                        if not data:
+                            continue
+                        summary["discovered"] += 1
+                        _, created = crud.upsert_job(db, source=JobSource.INDEED, **data)
+                        if created:
+                            summary["new"] += 1
+                        db.commit()
+                        human_delay(1.5, 3.5)
+        finally:
+            context.close()
+    logger.info("Indeed discovery complete: %s", summary)
+    return summary
+
+
+# --------------------------------------------------------------------------- #
+# Run (LEGACY auto-apply — no longer wired into the scheduler)                 #
 # --------------------------------------------------------------------------- #
 def run_indeed_applications(
     db: Session,
