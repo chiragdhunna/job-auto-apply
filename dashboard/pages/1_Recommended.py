@@ -68,16 +68,12 @@ if sources:
 
 # --- Empty state (an invitation to act, not a dead end) --------------------- #
 if not jobs:
-    try:
-        interval = api.get_settings().get("run_interval_minutes", 60)
-        cadence = f"the pipeline runs every {interval} min"
-    except api.APIError:
-        cadence = "the pipeline runs on its schedule"
     st.info(
-        f"No jobs to show yet — {cadence}, or trigger one now: **Discover jobs now** "
-        "pulls fresh postings, **Score new jobs** ranks them. Anything at or above "
-        "your threshold lands here. (Filtered everything out? Lower the minimum-score "
-        "slider.)",
+        "No jobs to show yet. Run `./discover.sh` in a terminal (one full "
+        "discovery + scoring cycle), or trigger it here: **Discover jobs now** "
+        "pulls fresh postings, **Score new jobs** ranks them. Anything at or "
+        "above your threshold lands here. (Filtered everything out? Lower the "
+        "minimum-score slider.)",
         icon="▮",
     )
     st.stop()

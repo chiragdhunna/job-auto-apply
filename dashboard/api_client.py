@@ -14,16 +14,26 @@ import requests
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip("/")
 TIMEOUT = 60
+# LLM-heavy endpoints (tailoring, scoring, outreach drafting) can take many
+# MINUTES on local Ollama — a short timeout makes the dashboard falsely report
+# "cannot reach backend" while the backend is mid-generation.
+LLM_TIMEOUT = 1800
 
 
 class APIError(RuntimeError):
     pass
 
 
-def _req(method: str, path: str, **kwargs) -> Any:
+def _req(method: str, path: str, timeout: int = TIMEOUT, **kwargs) -> Any:
     url = f"{BACKEND_URL}{path}"
     try:
-        resp = requests.request(method, url, timeout=TIMEOUT, **kwargs)
+        resp = requests.request(method, url, timeout=timeout, **kwargs)
+    except requests.Timeout as exc:
+        raise APIError(
+            f"Timed out after {timeout}s waiting for the backend — it may still be "
+            f"working (LLM calls on Ollama can take several minutes). Check "
+            f"Resume Versions / refresh in a bit rather than re-clicking."
+        ) from exc
     except requests.RequestException as exc:
         raise APIError(f"Cannot reach backend at {BACKEND_URL}. Is it running? ({exc})") from exc
     if resp.status_code >= 400:
@@ -83,7 +93,7 @@ def set_job_status(job_id: int, status: str) -> Dict[str, Any]:
 
 
 def scrape_now() -> Dict[str, Any]:
-    return _req("POST", "/jobs/scrape")
+    return _req("POST", "/jobs/scrape", timeout=300)
 
 
 def get_recommended(
@@ -109,15 +119,15 @@ def unmark_applied(job_id: int) -> Dict[str, Any]:
 
 
 def score_new() -> Dict[str, Any]:
-    return _req("POST", "/jobs/score")
+    return _req("POST", "/jobs/score", timeout=LLM_TIMEOUT)
 
 
 def score_job(job_id: int) -> Dict[str, Any]:
-    return _req("POST", f"/jobs/{job_id}/score")
+    return _req("POST", f"/jobs/{job_id}/score", timeout=LLM_TIMEOUT)
 
 
 def tailor_resume(job_id: int, force_tailor: bool = False) -> Dict[str, Any]:
-    return _req("POST", f"/jobs/{job_id}/resume", params={"force_tailor": force_tailor})
+    return _req("POST", f"/jobs/{job_id}/resume", params={"force_tailor": force_tailor}, timeout=LLM_TIMEOUT)
 
 
 def list_job_resumes(job_id: int) -> List[Dict[str, Any]]:
@@ -140,7 +150,7 @@ def generate_answers(job_id: int, questions: Optional[List[str]] = None) -> Dict
     body: Dict[str, Any] = {}
     if questions:
         body["questions"] = questions
-    return _req("POST", f"/jobs/{job_id}/answers", json=body)
+    return _req("POST", f"/jobs/{job_id}/answers", json=body, timeout=LLM_TIMEOUT)
 
 
 # -- applications ----------------------------------------------------------- #
@@ -158,7 +168,7 @@ def get_outreach(job_id: int) -> Dict[str, Any]:
 
 
 def regenerate_outreach(job_id: int) -> Dict[str, Any]:
-    return _req("POST", f"/outreach/{job_id}/regenerate")
+    return _req("POST", f"/outreach/{job_id}/regenerate", timeout=LLM_TIMEOUT)
 
 
 def save_outreach_draft(job_id: int, draft_id: int, draft_text: str, subject: Optional[str] = None) -> Dict[str, Any]:

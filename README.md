@@ -94,8 +94,9 @@ $EDITOR config/base_resume_data.json   # your structured resume
 #   macOS:  brew install tectonic
 #   Linux:  see https://tectonic-typesetting.github.io/  (single binary)
 
-# 6. Run everything (backend + scheduler + dashboard)
-./run.sh
+# 6. Start the app, then run a discovery cycle
+./run.sh          # backend + dashboard
+./discover.sh     # in a second terminal: fetch + score jobs
 ```
 
 Then open the dashboard at **http://localhost:8501** and the API docs at
@@ -207,19 +208,25 @@ overrides the YAML defaults). Roles/locations/companies live in the YAML.
 
 ## Running it
 
-**Everything at once:**
+**Two scripts, deliberately separate** (so batch LLM work never competes with
+your interactive clicks — this matters a lot on Ollama):
 
 ```bash
-./run.sh        # backend + scheduler + dashboard, Ctrl-C stops all
+./run.sh                 # the APP: backend + dashboard (light, keep it running)
+./discover.sh            # the PIPELINE: one discovery + scoring cycle, then exit
+./discover.sh --loop     # or keep the pipeline running on the settings cadence
 ```
+
+Both share the same SQLite DB; the dashboard doesn't need the pipeline running
+(and vice versa). Typical rhythm: kick off `./discover.sh`, grab a coffee while
+Ollama scores, then browse ★ Recommended in the always-on app.
 
 **Individually** (handy while developing):
 
 ```bash
-uvicorn backend.main:app --reload --port 8000     # API
-python -m scheduler.runner                        # scheduler loop
-python -m scheduler.runner --once                 # one pipeline cycle then exit
-streamlit run dashboard/app.py                     # dashboard
+uvicorn backend.main:app --reload --port 8000     # API only
+python -m scheduler.runner --once                 # one pipeline cycle
+streamlit run dashboard/app.py                     # dashboard only
 ```
 
 **First-time browser login (LinkedIn / Indeed).** We never automate the login form

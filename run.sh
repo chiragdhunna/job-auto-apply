@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 #
-# run.sh — start the whole job-auto-apply system locally:
-#   1. FastAPI backend   (http://localhost:8000)
-#   2. APScheduler loop   (runs the pipeline on interval)
-#   3. Streamlit dashboard (http://localhost:8501)
+# run.sh — start the INTERACTIVE app:
+#   1. FastAPI backend    (http://localhost:8000)
+#   2. Streamlit dashboard (http://localhost:8501)
 #
-# All three are started as background processes; Ctrl-C stops all of them.
+# The discovery/scoring pipeline is deliberately NOT started here — run it
+# separately with ./discover.sh so batch LLM work (slow on Ollama) never
+# competes with your interactive clicks (tailor resume, score one job, drafts).
+# Ctrl-C stops both processes.
 #
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -50,12 +52,7 @@ echo "Starting FastAPI backend on :${BACKEND_PORT}…"
 "$PY" -m uvicorn backend.main:app --host 0.0.0.0 --port "${BACKEND_PORT}" &
 pids+=($!)
 
-# Give the API a moment to come up before the scheduler/dashboard hit it.
 sleep 3
-
-echo "Starting scheduler loop…"
-"$PY" -m scheduler.runner &
-pids+=($!)
 
 echo "Starting Streamlit dashboard on :${DASHBOARD_PORT}…"
 "$PY" -m streamlit run dashboard/app.py \
@@ -66,9 +63,10 @@ echo ""
 echo "──────────────────────────────────────────────────────────"
 echo "  Backend   : http://localhost:${BACKEND_PORT}  (docs at /docs)"
 echo "  Dashboard : http://localhost:${DASHBOARD_PORT}"
-echo "  Scheduler : running (see logs/scheduler.log)"
-echo "  Ctrl-C to stop everything."
+echo ""
+echo "  Fresh jobs?  ./discover.sh          (one discovery+scoring cycle)"
+echo "               ./discover.sh --loop   (keep running on the interval)"
+echo "  Ctrl-C to stop."
 echo "──────────────────────────────────────────────────────────"
 
-# Wait on all background processes; if one dies, keep the others until Ctrl-C.
 wait
